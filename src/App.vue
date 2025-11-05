@@ -1,0 +1,725 @@
+<script setup>
+// --- LOGIKA JAVASCRIPT ---
+// (INI SEMUA SAMA PERSIS SEPERTI SEBELUMNYA, TIDAK ADA PERUBAHAN)
+
+import { ref, onMounted, watch, nextTick } from "vue"
+
+const messages = ref([])
+const userInput = ref("")
+const isLoading = ref(false)
+const chatContainer = ref(null)
+onMounted(() => {
+  startNewChat() // Panggil fungsi ini untuk memuat pesan sambutan
+})
+
+function startNewChat() {
+  messages.value = []
+  nextTick(() => {
+    messages.value.push({
+      role: "bot",
+      type: "text",
+      content:
+        "Halo! Saya adalah AI asisten bank. Apa yang ingin Anda ketahui?",
+    })
+  })
+}
+
+async function handleSubmit() {
+  if (!userInput.value.trim()) return
+  isLoading.value = true
+  const currentMessage = userInput.value
+
+  messages.value.push({ role: "user", type: "text", content: currentMessage })
+  userInput.value = ""
+
+  const requestPayload = { prompt: currentMessage }
+
+  try {
+    const response = await fetch("http://localhost:8080/api/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestPayload),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || "Terjadi kesalahan dari API")
+    }
+    messages.value.push({ role: "bot", type: "data", data: data })
+  } catch (error) {
+    let errorMsg = error.message
+    if (error.message.includes("Failed to fetch")) {
+      errorMsg =
+        "Gagal terhubung ke backend (http://localhost:8080). Pastikan backend Go kamu sudah jalan!"
+    }
+    messages.value.push({ role: "bot", type: "error", content: errorMsg })
+  }
+  isLoading.value = false
+}
+
+const formatter = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+})
+
+watch(
+  messages,
+  () => {
+    nextTick(() => {
+      if (chatContainer.value) {
+        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+      }
+    })
+  },
+  { deep: true }
+)
+</script>
+
+<template>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <button class="new-chat-btn" @click="startNewChat">
+          <svg
+            class="icon"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 4.5v15m7.5-7.5h-15"
+            />
+          </svg>
+          New Chat
+        </button>
+      </div>
+    </aside>
+
+    <main class="chat-main">
+      <div class="chat-history" ref="chatContainer">
+        <!-- Welcome Message -->
+        <div v-if="messages.length === 1" class="welcome-card">
+          <h2>Halo, saya asisten bank Anda 🤖</h2>
+          <p>
+            Tanyakan apa saja tentang rekening, transaksi, saldo, atau nasabah.
+          </p>
+          <div class="suggestions">
+            <span
+              @click="
+                userInput =
+                  'Tampilkan semua nasabah dengan saldo lebih dari 10 juta'
+              "
+              class="suggestion"
+              >Saldo > 10 juta</span
+            >
+            <span
+              @click="userInput = 'Tampilkan transaksi terakhir 5 nasabah'"
+              class="suggestion"
+              >Transaksi terakhir</span
+            >
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div
+          v-for="(message, index) in messages"
+          :key="index"
+          :class="['message-block', message.role]"
+          :style="{ animationDelay: `${index * 0.05}s` }"
+        >
+          <div v-if="message.role === 'user'" class="avatar">
+            <div class="avatar-user">👤</div>
+          </div>
+
+          <div class="message-content">
+            <template v-if="message.type === 'text'">
+              {{ message.content }}
+            </template>
+            <template v-else-if="message.type === 'error'">
+              <div class="error-box">
+                <svg
+                  class="error-icon"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  stroke-width="2"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                  />
+                </svg>
+                <span>{{ message.content }}</span>
+              </div>
+            </template>
+            <template v-else-if="message.type === 'data'">
+              <div
+                v-if="
+                  !message.data ||
+                  !message.data.rows ||
+                  message.data.rows.length === 0
+                "
+                class="no-data"
+              >
+                <svg
+                  class="empty-icon"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M12 9.75 14.25 12 12 14.25l-2.25-2.25L12 9.75ZM12 18a2.25 2.25 0 1 0 0-4.5A2.25 2.25 0 0 0 12 18ZM12 2.25V18"
+                  />
+                </svg>
+                <p>Tidak ada data ditemukan.</p>
+              </div>
+              <div v-else class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th
+                        v-for="headerKey in message.data.columns"
+                        :key="headerKey"
+                      >
+                        {{
+                          headerKey
+                            .replace(/_/g, " ")
+                            .replace(/\b\w/g, c => c.toUpperCase())
+                        }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(rowArray, rIndex) in message.data.rows"
+                      :key="rIndex"
+                      class="table-row"
+                    >
+                      <td v-for="(cellValue, cIndex) in rowArray" :key="cIndex">
+                        <template
+                          v-if="
+                            message.data.columns[cIndex].includes('saldo') ||
+                            message.data.columns[cIndex].includes('jumlah') ||
+                            message.data.columns[cIndex].includes('debit') ||
+                            message.data.columns[cIndex].includes('kredit')
+                          "
+                        >
+                          <span class="number-cell">{{
+                            formatter.format(parseFloat(cellValue) || 0)
+                          }}</span>
+                        </template>
+                        <template
+                          v-else-if="
+                            message.data.columns[cIndex].includes(
+                              'waktu_transaksi'
+                            ) ||
+                            message.data.columns[cIndex].includes('tanggal')
+                          "
+                        >
+                          {{
+                            new Date(cellValue).toLocaleString("id-ID", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })
+                          }}
+                        </template>
+                        <template v-else>
+                          {{ cellValue }}
+                        </template>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+          </div>
+          <div v-if="message.role === 'bot'" class="avatar">
+            <div class="avatar-bot">🤖</div>
+          </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div v-if="isLoading" class="message-block bot">
+          <div class="avatar"><div class="avatar-bot">🤖</div></div>
+          <div class="message-content typing">...</div>
+        </div>
+      </div>
+
+      <form class="chat-input-form" @submit.prevent="handleSubmit">
+        <input
+          class="chat-input"
+          type="text"
+          placeholder="silahkan masukan kebutuhan.."
+          v-model="userInput"
+          :disabled="isLoading"
+          autocomplete="off"
+        />
+        <button type="submit" :disabled="isLoading" class="send-btn">-></button>
+      </form>
+    </main>
+  </div>
+</template>
+
+<style>
+/* Variabel CSS untuk Warna */
+:root {
+  --bg-dark: #121212; /* Latar belakang utama */
+  --bg-darker: #0f0f0f; /* Latar belakang sidebar */
+  --text-light: #ffffff; /* Warna teks umum */
+  --text-muted: #8e8ea0; /* Warna teks sekunder/hint */
+  --border-color: #3e3e40; /* Warna border */
+  --primary-blue: #4299e1; /* Warna utama (biru) */
+  --input-bg: #2d2d2d; /* Latar belakang input */
+  --bubble-bot-bg: #2a2a2a; /* Latar belakang pesan bot */
+  --bubble-user-bg: #2c2c2c; /* Latar belakang pesan user */
+  --shadow: rgba(0, 0, 0, 0.5);
+}
+
+/* Reset Global */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body,
+html,
+#app {
+  height: 100%;
+  width: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  color: var(--text-light);
+  background-color: var(--bg-dark); /* Latar belakang gelap */
+}
+
+/* Layout Utama */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* --- SIDEBAR --- */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background-color: var(--bg-darker);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  padding: 10px;
+}
+
+.sidebar-header {
+  padding: 10px;
+  margin-bottom: 20px;
+}
+
+.new-chat-btn {
+  width: 100%;
+  padding: 12px 15px;
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-light);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+.new-chat-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+.new-chat-btn .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text-light);
+}
+
+.sidebar-nav {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 10px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 15px;
+  color: var(--text-light);
+  text-decoration: none;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  transform: translateX(2px);
+}
+.nav-item .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text-light);
+}
+
+/* --- CHAT MAIN AREA --- */
+.chat-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-dark);
+}
+
+.chat-history {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 20px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+.chat-history::-webkit-scrollbar {
+  width: 8px;
+}
+.chat-history::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-history::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  border: 2px solid var(--bg-dark);
+}
+
+/* Welcome Card */
+.welcome-card {
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
+  padding: 30px;
+  border-radius: 12px;
+  margin: 20px 20px 30px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  animation: fadeIn 0.6s ease-out;
+}
+.welcome-card h2 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+.welcome-card p {
+  font-size: 0.95rem;
+  color: #e0e0e0;
+  margin-bottom: 20px;
+}
+.suggestions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.suggestion {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+.suggestion:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* Message Block */
+.message-block {
+  display: flex;
+  width: 100%;
+  padding: 16px 20px;
+  gap: 16px;
+  align-items: flex-start;
+  background-color: var(--bg-dark);
+  transition: transform 0.2s ease;
+  animation: slideIn 0.4s ease-out;
+  margin-bottom: 16px;
+}
+.message-block.user {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  background-color: var(--bubble-user-bg);
+}
+.message-block.bot {
+  background-color: var(--bubble-bot-bg);
+  flex-direction: row;
+  justify-content: flex-start;
+}
+.message-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
+  background-color: var(--primary-blue);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.avatar-user {
+  background-color: #4299e1;
+}
+.avatar-bot {
+  background-color: #6c757d;
+}
+
+.message-content {
+  flex-grow: 1;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  word-wrap: break-word;
+  max-width: calc(100% - 36px - 20px - 40px);
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Error Box */
+.error-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(239, 68, 68, 0.1);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+}
+.error-icon {
+  width: 20px;
+  height: 20px;
+  color: #fca5a5;
+}
+
+/* No Data */
+.no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  text-align: center;
+}
+.empty-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.no-data p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Table Wrapper */
+.table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-top: 10px;
+  background-color: var(--bg-dark);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.data-table th,
+.data-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+.data-table th {
+  background-color: var(--bubble-bot-bg);
+  color: var(--text-light);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.data-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.number-cell {
+  text-align: right;
+  font-family: "Consolas", "Monaco", monospace;
+  color: #a0aec0;
+  font-weight: 500;
+}
+
+/* Loader "..." */
+.message-content.typing {
+  display: flex;
+  align-items: center;
+  height: 36px;
+}
+.message-content.typing span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  animation: typing 1.4s infinite both;
+  display: inline-block;
+  margin: 0 2px;
+}
+.message-content.typing span:nth-child(1) {
+  animation-delay: 0.2s;
+}
+.message-content.typing span:nth-child(2) {
+  animation-delay: 0.4s;
+}
+.message-content.typing span:nth-child(3) {
+  animation-delay: 0.6s;
+}
+@keyframes typing {
+  0% {
+    opacity: 0.2;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+/* Input Form */
+.chat-input-form {
+  width: 100%;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  background-color: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
+  position: relative;
+}
+
+.chat-input {
+  width: 100%;
+  max-width: 768px;
+  padding: 14px 50px 14px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  background-color: var(--input-bg);
+  color: var(--text-light);
+  font-size: 1rem;
+  resize: none;
+  min-height: 50px;
+  max-height: 200px;
+  overflow-y: auto;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+.chat-input:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.3);
+}
+.chat-input:disabled {
+  background-color: var(--border-color);
+  cursor: not-allowed;
+}
+
+.send-btn {
+  position: absolute;
+  right: 28px;
+  bottom: 18px;
+  width: 36px;
+  height: 36px;
+  background-color: var(--primary-blue);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+.send-btn:hover:not(:disabled) {
+  background-color: #3182ce;
+  transform: scale(1.1);
+}
+.send-btn:disabled {
+  background-color: var(--border-color);
+  cursor: not-allowed;
+  transform: scale(0.95);
+}
+.send-icon {
+  width: 18px;
+  height: 18px;
+  color: white;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.message-block {
+  display: flex;
+  width: 100%;
+  padding: 16px 20px;
+  gap: 16px;
+  align-items: flex-start;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.message-content {
+  flex-grow: 1;
+  max-width: calc(100% - 52px); /* sesuaikan dengan avatar + gap */
+  /* ... gaya lain tetap sama ... */
+}
+
+/* Opsional: rata teks user ke kanan */
+.message-block.user .message-content {
+  text-align: right;
+}
+</style>
