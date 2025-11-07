@@ -1,7 +1,4 @@
 <script setup>
-// --- LOGIKA JAVASCRIPT ---
-// (INI SEMUA SAMA PERSIS SEPERTI SEBELUMNYA, TIDAK ADA PERUBAHAN)
-
 import { ref, onMounted, watch, nextTick } from "vue"
 
 const messages = ref([])
@@ -9,7 +6,7 @@ const userInput = ref("")
 const isLoading = ref(false)
 const chatContainer = ref(null)
 onMounted(() => {
-  startNewChat() // Panggil fungsi ini untuk memuat pesan sambutan
+  startNewChat()
 })
 
 function startNewChat() {
@@ -63,16 +60,31 @@ const formatter = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 0,
 })
 
+// 4.1 Ekstrak formatter ke computed property
+const formattedValue = (value, type) => {
+  if (type.includes("saldo") || type.includes("jumlah")) {
+    return formatter.format(parseFloat(value) || 0)
+  }
+  if (type.includes("tanggal") || type.includes("waktu")) {
+    return new Date(value).toLocaleString("id-ID")
+  }
+  return value
+}
+
+// 4.2 Tambah input validation
+function validateInput(input) {
+  return input.trim().length > 0
+}
+
 watch(
-  messages,
+  () => messages.value.length, // hanya watch length
   () => {
     nextTick(() => {
       if (chatContainer.value) {
         chatContainer.value.scrollTop = chatContainer.value.scrollHeight
       }
     })
-  },
-  { deep: true }
+  }
 )
 </script>
 
@@ -100,8 +112,12 @@ watch(
     </aside>
 
     <main class="chat-main">
-      <div class="chat-history" ref="chatContainer">
-        <!-- Welcome Message -->
+      <div
+        class="chat-history"
+        ref="chatContainer"
+        aria-live="polite"
+        aria-label="Chat history"
+      >
         <div v-if="messages.length === 1" class="welcome-card">
           <h2>Halo, saya asisten bank Anda 🤖</h2>
           <p>
@@ -124,7 +140,6 @@ watch(
           </div>
         </div>
 
-        <!-- Messages -->
         <div
           v-for="(message, index) in messages"
           :key="index"
@@ -180,6 +195,16 @@ watch(
                   />
                 </svg>
                 <p>Tidak ada data ditemukan.</p>
+              </div>
+              <div
+                v-else-if="message.data.rows.length === 0"
+                class="empty-state"
+              >
+                <svg class="empty-icon">...</svg>
+                <p>Belum ada data untuk ditampilkan</p>
+                <button @click="clearFilter" class="clear-filter-btn">
+                  Reset Filter
+                </button>
               </div>
               <div v-else class="table-wrapper">
                 <table class="data-table">
@@ -246,10 +271,13 @@ watch(
           </div>
         </div>
 
-        <!-- Loading Indicator -->
         <div v-if="isLoading" class="message-block bot">
           <div class="avatar"><div class="avatar-bot">🤖</div></div>
-          <div class="message-content typing">...</div>
+          <div class="message-content">
+            <div class="typing-indicator">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -262,7 +290,21 @@ watch(
           :disabled="isLoading"
           autocomplete="off"
         />
-        <button type="submit" :disabled="isLoading" class="send-btn">-></button>
+        <button type="submit" :disabled="isLoading" class="send-btn">
+          <svg
+            class="send-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
       </form>
     </main>
   </div>
@@ -298,7 +340,7 @@ html,
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
   color: var(--text-light);
-  background-color: var(--bg-dark); /* Latar belakang gelap */
+  background-color: var(--bg-dark);
 }
 
 /* Layout Utama */
@@ -400,9 +442,11 @@ html,
   background: transparent;
 }
 .chat-history::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  border: 2px solid var(--bg-dark);
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
 }
 
 /* Welcome Card */
@@ -432,15 +476,15 @@ html,
 }
 .suggestion {
   background: rgba(255, 255, 255, 0.1);
-  padding: 8px 16px;
+  padding: 10px 18px;
   border-radius: 20px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.1s ease;
 }
 .suggestion:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+  background-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
 }
 
 /* Message Block */
@@ -452,7 +496,7 @@ html,
   align-items: flex-start;
   background-color: var(--bg-dark);
   transition: transform 0.2s ease;
-  animation: slideIn 0.4s ease-out;
+  animation: fadeIn 0.4s ease-out;
   margin-bottom: 16px;
 }
 .message-block.user {
@@ -462,7 +506,7 @@ html,
 }
 .message-block.bot {
   background-color: var(--bubble-bot-bg);
-  flex-direction: row;
+  flex-direction: row-reverse;
   justify-content: flex-start;
 }
 .message-block:hover {
@@ -471,8 +515,8 @@ html,
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
   border-radius: 50%;
   display: flex;
@@ -577,6 +621,10 @@ html,
   color: #a0aec0;
   font-weight: 500;
 }
+.number-cell:empty::after {
+  content: "-";
+  color: var(--text-muted);
+}
 
 /* Loader "..." */
 .message-content.typing {
@@ -649,13 +697,14 @@ html,
 }
 .chat-input:disabled {
   background-color: var(--border-color);
-  cursor: not-allowed;
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .send-btn {
   position: absolute;
   right: 28px;
-  bottom: 18px;
+  bottom: 22px;
   width: 36px;
   height: 36px;
   background-color: var(--primary-blue);
@@ -665,16 +714,26 @@ html,
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: all 0.2s ease;
+  padding: 0;
+  overflow: hidden;
 }
 .send-btn:hover:not(:disabled) {
   background-color: #3182ce;
   transform: scale(1.1);
 }
+.send-btn:hover:not(:disabled) svg {
+  transform: translateX(2px);
+  transition: transform 0.2s ease;
+}
 .send-btn:disabled {
   background-color: var(--border-color);
   cursor: not-allowed;
   transform: scale(0.95);
+}
+.send-btn:focus-visible {
+  outline: 2px solid var(--primary-blue);
+  outline-offset: 2px;
 }
 .send-icon {
   width: 18px;
@@ -703,23 +762,57 @@ html,
     transform: translateX(0);
   }
 }
-.message-block {
-  display: flex;
-  width: 100%;
-  padding: 16px 20px;
-  gap: 16px;
-  align-items: flex-start;
-  animation: fadeIn 0.4s ease-out;
-}
 
 .message-content {
   flex-grow: 1;
-  max-width: calc(100% - 52px); /* sesuaikan dengan avatar + gap */
-  /* ... gaya lain tetap sama ... */
+  max-width: calc(100% - 52px);
 }
 
-/* Opsional: rata teks user ke kanan */
 .message-block.user .message-content {
   text-align: right;
+}
+.typing-indicator {
+  display: flex;
+  gap: 5px;
+}
+.typing-indicator span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d1d5db;
+  animation: pulse 1.4s infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    padding: 8px;
+  }
+
+  .message-block {
+    padding: 12px 16px;
+  }
+
+  .data-table {
+    font-size: 0.85rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .message-block,
+  .welcome-card {
+    animation: none;
+  }
 }
 </style>
