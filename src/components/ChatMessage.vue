@@ -70,9 +70,9 @@
     </div>
 
     <!-- Bot Avatar -->
-    <div v-if="message.role === 'bot'" class="avatar">
+    <!-- <div v-if="message.role === 'bot'" class="avatar">
       <div class="avatar-bot">🤖</div>
-    </div>
+    </div> -->
   </div>
 </template>
 
