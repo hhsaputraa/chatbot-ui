@@ -25,7 +25,11 @@
             :key="rIndex"
             class="table-row"
           >
-            <td v-for="(cellValue, cIndex) in rowArray" :key="cIndex">
+            <td
+              v-for="(cellValue, cIndex) in rowArray"
+              :key="cIndex"
+              :title="formatCell(cellValue, columns[cIndex])"
+            >
               {{ formatCell(cellValue, columns[cIndex]) }}
             </td>
           </tr>
@@ -182,11 +186,17 @@ function handleJumpToPage() {
 
 /* Table Wrapper */
 .table-wrapper {
+  /* Enable both horizontal and vertical scrolling */
   overflow-x: auto;
+  overflow-y: auto;
+  /* Set maximum height to prevent table from growing too tall */
+  max-height: 500px;
   border: 1px solid var(--border-color);
   border-radius: 0 0 8px 8px;
   background-color: var(--bg-dark);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
 }
 
 .table-container .table-wrapper {
@@ -199,6 +209,8 @@ function handleJumpToPage() {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  /* Ensure table takes minimum required width */
+  table-layout: auto;
 }
 
 .data-table th,
@@ -206,21 +218,48 @@ function handleJumpToPage() {
   padding: 12px 16px;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
+  /* Limit cell width and handle text overflow */
+  max-width: 300px;
+  min-width: 120px;
+  /* Truncate long text with ellipsis */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Vertical alignment */
+  vertical-align: middle;
+}
+
+/* Allow wrapping for very long words/URLs if needed */
+.data-table td.wrap-text {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 250px;
 }
 
 .data-table th {
   background-color: var(--bubble-bot-bg);
   color: var(--text-light);
   font-weight: 600;
+  /* Sticky header - stays visible while scrolling vertically */
   position: sticky;
   top: 0;
   z-index: 10;
+  /* Ensure header has solid background */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.data-table tr:hover {
+.data-table tbody tr:hover {
   background-color: rgba(255, 255, 255, 0.05);
+  cursor: default;
 }
 
+/* Specific column width adjustments */
+.data-table th:first-child,
+.data-table td:first-child {
+  min-width: 100px;
+}
+
+/* Number cells - right aligned */
 .number-cell {
   text-align: right;
   font-family: "Consolas", "Monaco", monospace;
@@ -231,6 +270,43 @@ function handleJumpToPage() {
 .number-cell:empty::after {
   content: "-";
   color: var(--text-muted);
+}
+
+/* Custom Scrollbar Styling */
+.table-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: var(--bg-darker);
+  border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-blue);
+}
+
+/* Firefox scrollbar */
+.table-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) var(--bg-darker);
+}
+
+/* Cell content tooltip on hover (optional enhancement) */
+.data-table td {
+  position: relative;
+}
+
+.data-table td:hover {
+  /* Show full text on hover via title attribute */
+  cursor: help;
 }
 
 /* No Search Results */
@@ -254,5 +330,57 @@ function handleJumpToPage() {
 .no-search-results p {
   color: var(--text-muted);
   font-size: 0.95rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .table-wrapper {
+    /* Reduce max height on mobile for better UX */
+    max-height: 400px;
+  }
+
+  .data-table {
+    font-size: 0.85rem;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 10px 12px;
+    /* Reduce max width on mobile */
+    max-width: 200px;
+    min-width: 100px;
+  }
+
+  /* Smaller scrollbar on mobile */
+  .table-wrapper::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+/* Large screens - allow more height */
+@media (min-width: 1200px) {
+  .table-wrapper {
+    max-height: 600px;
+  }
+
+  .data-table th,
+  .data-table td {
+    max-width: 400px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .table-wrapper {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .data-table th,
+  .data-table td {
+    white-space: normal;
+    max-width: none;
+  }
 }
 </style>
