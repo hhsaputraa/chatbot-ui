@@ -1,10 +1,14 @@
 <script setup>
-import { ref, onMounted, watch, nextTick } from "vue"
+import { ref, onMounted, watch, nextTick, computed } from "vue"
 
 const messages = ref([])
 const userInput = ref("")
 const isLoading = ref(false)
 const chatContainer = ref(null)
+
+// Pagination state: Map of message index to pagination settings
+const paginationState = ref({})
+
 onMounted(() => {
   startNewChat()
 })
@@ -82,7 +86,13 @@ async function handleSubmit() {
     if (!response.ok) {
       throw new Error(data.error || "Terjadi kesalahan dari API")
     }
+    const messageIndex = messages.value.length
     messages.value.push({ role: "bot", type: "data", data: data })
+
+    // Initialize pagination for this message
+    if (data.rows && data.rows.length > 0) {
+      initPagination(messageIndex, data.rows.length)
+    }
   } catch (error) {
     let errorMsg = error.message
     if (error.message.includes("Failed to fetch")) {
@@ -115,6 +125,63 @@ const formattedValue = (value, type) => {
 // 4.2 Tambah input validation
 function validateInput(input) {
   return input.trim().length > 0
+}
+
+// Pagination helper functions
+function initPagination(messageIndex, totalRows) {
+  if (!paginationState.value[messageIndex]) {
+    paginationState.value[messageIndex] = {
+      currentPage: 1,
+      rowsPerPage: 10,
+    }
+  }
+}
+
+function getPaginatedRows(messageIndex, allRows) {
+  const state = paginationState.value[messageIndex]
+  if (!state) return allRows
+
+  const start = (state.currentPage - 1) * state.rowsPerPage
+  const end = start + state.rowsPerPage
+  return allRows.slice(start, end)
+}
+
+function getTotalPages(messageIndex, totalRows) {
+  const state = paginationState.value[messageIndex]
+  if (!state) return 1
+  return Math.ceil(totalRows / state.rowsPerPage)
+}
+
+function goToPage(messageIndex, page) {
+  const state = paginationState.value[messageIndex]
+  if (state) {
+    state.currentPage = page
+  }
+}
+
+function changeRowsPerPage(messageIndex, newRowsPerPage) {
+  const state = paginationState.value[messageIndex]
+  if (state) {
+    state.rowsPerPage = newRowsPerPage
+    state.currentPage = 1 // Reset to first page
+  }
+}
+
+// Helper function to determine which page numbers to show
+function shouldShowPageNumber(pageNum, currentPage, totalPages) {
+  // Always show first page, last page, current page, and pages around current
+  if (pageNum === 1 || pageNum === totalPages) return true
+  if (Math.abs(pageNum - currentPage) <= 1) return true
+  return false
+}
+
+// Helper function to determine where to show ellipsis
+function shouldShowEllipsis(pageNum, currentPage, totalPages) {
+  // Show ellipsis after page 1 if current page is far from start
+  if (pageNum === 2 && currentPage > 3) return true
+  // Show ellipsis before last page if current page is far from end
+  if (pageNum === totalPages - 1 && currentPage < totalPages - 2) return true
+  return false
 }
 
 watch(
@@ -255,7 +322,10 @@ watch(
                   </thead>
                   <tbody>
                     <tr
-                      v-for="(rowArray, rIndex) in message.data.rows"
+                      v-for="(rowArray, rIndex) in getPaginatedRows(
+                        index,
+                        message.data.rows
+                      )"
                       :key="rIndex"
                       class="table-row"
                     >
@@ -267,6 +337,135 @@ watch(
                     </tr>
                   </tbody>
                 </table>
+
+                <!-- Pagination Controls -->
+                <div
+                  class="pagination-container"
+                  v-if="message.data.rows.length > 0"
+                >
+                  <div class="pagination-info">
+                    <span>Rows per page:</span>
+                    <select
+                      class="rows-per-page-select"
+                      :value="paginationState[index]?.rowsPerPage || 10"
+                      @change="
+                        changeRowsPerPage(index, parseInt($event.target.value))
+                      "
+                    >
+                      <option :value="10">10</option>
+                      <option :value="20">20</option>
+                      <option :value="50">50</option>
+                      <option :value="100">100</option>
+                    </select>
+                    <span class="page-info">
+                      Page {{ paginationState[index]?.currentPage || 1 }} of
+                      {{ getTotalPages(index, message.data.rows.length) }} ({{
+                        message.data.rows.length
+                      }}
+                      total rows)
+                    </span>
+                  </div>
+
+                  <div class="pagination-controls">
+                    <button
+                      class="pagination-btn"
+                      :disabled="
+                        (paginationState[index]?.currentPage || 1) === 1
+                      "
+                      @click="
+                        goToPage(
+                          index,
+                          (paginationState[index]?.currentPage || 1) - 1
+                        )
+                      "
+                    >
+                      <svg
+                        class="pagination-icon"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                      Previous
+                    </button>
+
+                    <div class="page-numbers">
+                      <template
+                        v-for="pageNum in getTotalPages(
+                          index,
+                          message.data.rows.length
+                        )"
+                        :key="pageNum"
+                      >
+                        <button
+                          v-if="
+                            shouldShowPageNumber(
+                              pageNum,
+                              paginationState[index]?.currentPage || 1,
+                              getTotalPages(index, message.data.rows.length)
+                            )
+                          "
+                          class="page-number-btn"
+                          :class="{
+                            active:
+                              pageNum ===
+                              (paginationState[index]?.currentPage || 1),
+                          }"
+                          @click="goToPage(index, pageNum)"
+                        >
+                          {{ pageNum }}
+                        </button>
+                        <span
+                          v-else-if="
+                            shouldShowEllipsis(
+                              pageNum,
+                              paginationState[index]?.currentPage || 1,
+                              getTotalPages(index, message.data.rows.length)
+                            )
+                          "
+                          class="page-ellipsis"
+                        >
+                          ...
+                        </span>
+                      </template>
+                    </div>
+
+                    <button
+                      class="pagination-btn"
+                      :disabled="
+                        (paginationState[index]?.currentPage || 1) >=
+                        getTotalPages(index, message.data.rows.length)
+                      "
+                      @click="
+                        goToPage(
+                          index,
+                          (paginationState[index]?.currentPage || 1) + 1
+                        )
+                      "
+                    >
+                      Next
+                      <svg
+                        class="pagination-icon"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
             </template>
           </div>
@@ -630,6 +829,124 @@ html,
   color: var(--text-muted);
 }
 
+/* Pagination Styles */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: var(--text-light);
+}
+
+.rows-per-page-select {
+  padding: 6px 10px;
+  background-color: var(--input-bg);
+  color: var(--text-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.rows-per-page-select:hover {
+  border-color: var(--primary-blue);
+}
+
+.rows-per-page-select:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+
+.page-info {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background-color: var(--input-bg);
+  color: var(--text-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: var(--primary-blue);
+  border-color: var(--primary-blue);
+  transform: translateY(-1px);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-number-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 6px 10px;
+  background-color: var(--input-bg);
+  color: var(--text-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.page-number-btn:hover {
+  background-color: rgba(66, 153, 225, 0.2);
+  border-color: var(--primary-blue);
+}
+
+.page-number-btn.active {
+  background-color: var(--primary-blue);
+  border-color: var(--primary-blue);
+  font-weight: 600;
+}
+
+.page-ellipsis {
+  padding: 0 8px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 /* Loader "..." */
 .message-content.typing {
   display: flex;
@@ -810,6 +1127,38 @@ html,
   }
 
   .data-table {
+    font-size: 0.85rem;
+  }
+
+  .pagination-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .pagination-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .pagination-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .page-numbers {
+    flex-wrap: wrap;
+  }
+
+  .pagination-btn {
+    font-size: 0.85rem;
+    padding: 6px 10px;
+  }
+
+  .page-number-btn {
+    min-width: 32px;
+    height: 32px;
     font-size: 0.85rem;
   }
 }
