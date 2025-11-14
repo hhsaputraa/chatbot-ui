@@ -9,6 +9,12 @@ const chatContainer = ref(null)
 // Pagination state: Map of message index to pagination settings
 const paginationState = ref({})
 
+// Search/filter state: Map of message index to search query
+const searchState = ref({})
+
+// Jump to page state: Map of message index to jump input value
+const jumpToPageInput = ref({})
+
 onMounted(() => {
   startNewChat()
 })
@@ -127,6 +133,45 @@ function validateInput(input) {
   return input.trim().length > 0
 }
 
+// Search/filter helper functions
+function initSearch(messageIndex) {
+  if (!searchState.value[messageIndex]) {
+    searchState.value[messageIndex] = ""
+  }
+}
+
+function getFilteredRows(messageIndex, allRows, columns) {
+  const searchQuery = searchState.value[messageIndex]
+  if (!searchQuery || searchQuery.trim() === "") {
+    return allRows
+  }
+
+  const query = searchQuery.toLowerCase().trim()
+  return allRows.filter(row => {
+    // Search across all columns
+    return row.some((cellValue, colIndex) => {
+      const formattedValue = formatCell(cellValue, columns[colIndex])
+      return String(formattedValue).toLowerCase().includes(query)
+    })
+  })
+}
+
+function updateSearch(messageIndex, query) {
+  searchState.value[messageIndex] = query
+  // Reset to first page when search changes
+  if (paginationState.value[messageIndex]) {
+    paginationState.value[messageIndex].currentPage = 1
+  }
+}
+
+function clearSearch(messageIndex) {
+  searchState.value[messageIndex] = ""
+  // Reset to first page when search is cleared
+  if (paginationState.value[messageIndex]) {
+    paginationState.value[messageIndex].currentPage = 1
+  }
+}
+
 // Pagination helper functions
 function initPagination(messageIndex, totalRows) {
   if (!paginationState.value[messageIndex]) {
@@ -135,21 +180,34 @@ function initPagination(messageIndex, totalRows) {
       rowsPerPage: 10,
     }
   }
+  // Also initialize search state
+  initSearch(messageIndex)
+  // Initialize jump to page input
+  if (!jumpToPageInput.value[messageIndex]) {
+    jumpToPageInput.value[messageIndex] = ""
+  }
 }
 
-function getPaginatedRows(messageIndex, allRows) {
+function getPaginatedRows(messageIndex, allRows, columns) {
+  // First apply search filter
+  const filteredRows = getFilteredRows(messageIndex, allRows, columns)
+
   const state = paginationState.value[messageIndex]
-  if (!state) return allRows
+  if (!state) return filteredRows
 
   const start = (state.currentPage - 1) * state.rowsPerPage
   const end = start + state.rowsPerPage
-  return allRows.slice(start, end)
+  return filteredRows.slice(start, end)
 }
 
 function getTotalPages(messageIndex, totalRows) {
   const state = paginationState.value[messageIndex]
   if (!state) return 1
   return Math.ceil(totalRows / state.rowsPerPage)
+}
+
+function getFilteredRowCount(messageIndex, allRows, columns) {
+  return getFilteredRows(messageIndex, allRows, columns).length
 }
 
 function goToPage(messageIndex, page) {
@@ -182,6 +240,29 @@ function shouldShowEllipsis(pageNum, currentPage, totalPages) {
   // Show ellipsis before last page if current page is far from end
   if (pageNum === totalPages - 1 && currentPage < totalPages - 2) return true
   return false
+}
+
+// Jump to page functions
+function handleJumpToPage(messageIndex, allRows, columns) {
+  const inputValue = jumpToPageInput.value[messageIndex]
+  const pageNum = parseInt(inputValue)
+
+  // Get filtered row count for accurate total pages
+  const filteredCount = getFilteredRowCount(messageIndex, allRows, columns)
+  const totalPages = getTotalPages(messageIndex, filteredCount)
+
+  if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages) {
+    // Invalid page number - could show error message
+    return false
+  }
+
+  goToPage(messageIndex, pageNum)
+  jumpToPageInput.value[messageIndex] = "" // Clear input after successful jump
+  return true
+}
+
+function updateJumpToPageInput(messageIndex, value) {
+  jumpToPageInput.value[messageIndex] = value
 }
 
 watch(
@@ -304,44 +385,147 @@ watch(
                 </svg>
                 <p>Tidak ada data ditemukan.</p>
               </div>
-              <div v-else class="table-wrapper">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th
-                        v-for="headerKey in message.data.columns"
-                        :key="headerKey"
-                      >
-                        {{
-                          headerKey
-                            .replace(/_/g, " ")
-                            .replace(/\b\w/g, c => c.toUpperCase())
-                        }}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(rowArray, rIndex) in getPaginatedRows(
-                        index,
-                        message.data.rows
-                      )"
-                      :key="rIndex"
-                      class="table-row"
+              <div v-else class="table-container">
+                <!-- Search/Filter Input -->
+                <div class="search-container">
+                  <div class="search-input-wrapper">
+                    <svg
+                      class="search-icon"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                     >
-                      <td v-for="(cellValue, cIndex) in rowArray" :key="cIndex">
-                        {{
-                          formatCell(cellValue, message.data.columns[cIndex])
-                        }}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      class="search-input"
+                      placeholder="Cari..."
+                      :value="searchState[index] || ''"
+                      @input="updateSearch(index, $event.target.value)"
+                    />
+                    <button
+                      v-if="searchState[index] && searchState[index].length > 0"
+                      class="clear-search-btn"
+                      @click="clearSearch(index)"
+                      title="Clear search"
+                    >
+                      <svg
+                        class="clear-icon"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="search-results-info">
+                    <span
+                      v-if="searchState[index] && searchState[index].length > 0"
+                    >
+                      Showing
+                      {{
+                        getFilteredRowCount(
+                          index,
+                          message.data.rows,
+                          message.data.columns
+                        )
+                      }}
+                      of {{ message.data.rows.length }} rows
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Table -->
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th
+                          v-for="headerKey in message.data.columns"
+                          :key="headerKey"
+                        >
+                          {{
+                            headerKey
+                              .replace(/_/g, " ")
+                              .replace(/\b\w/g, c => c.toUpperCase())
+                          }}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="(rowArray, rIndex) in getPaginatedRows(
+                          index,
+                          message.data.rows,
+                          message.data.columns
+                        )"
+                        :key="rIndex"
+                        class="table-row"
+                      >
+                        <td
+                          v-for="(cellValue, cIndex) in rowArray"
+                          :key="cIndex"
+                        >
+                          {{
+                            formatCell(cellValue, message.data.columns[cIndex])
+                          }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <!-- No Results Message -->
+                  <div
+                    v-if="
+                      getFilteredRowCount(
+                        index,
+                        message.data.rows,
+                        message.data.columns
+                      ) === 0 &&
+                      searchState[index] &&
+                      searchState[index].length > 0
+                    "
+                    class="no-search-results"
+                  >
+                    <svg
+                      class="empty-icon"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    <p>No results found for "{{ searchState[index] }}"</p>
+                  </div>
+                </div>
 
                 <!-- Pagination Controls -->
                 <div
                   class="pagination-container"
-                  v-if="message.data.rows.length > 0"
+                  v-if="
+                    getFilteredRowCount(
+                      index,
+                      message.data.rows,
+                      message.data.columns
+                    ) > 0
+                  "
                 >
                   <div class="pagination-info">
                     <span>Rows per page:</span>
@@ -359,10 +543,16 @@ watch(
                     </select>
                     <span class="page-info">
                       Page {{ paginationState[index]?.currentPage || 1 }} of
-                      {{ getTotalPages(index, message.data.rows.length) }} ({{
-                        message.data.rows.length
+                      {{
+                        getTotalPages(
+                          index,
+                          getFilteredRowCount(
+                            index,
+                            message.data.rows,
+                            message.data.columns
+                          )
+                        )
                       }}
-                      total rows)
                     </span>
                   </div>
 
@@ -399,7 +589,11 @@ watch(
                       <template
                         v-for="pageNum in getTotalPages(
                           index,
-                          message.data.rows.length
+                          getFilteredRowCount(
+                            index,
+                            message.data.rows,
+                            message.data.columns
+                          )
                         )"
                         :key="pageNum"
                       >
@@ -408,7 +602,14 @@ watch(
                             shouldShowPageNumber(
                               pageNum,
                               paginationState[index]?.currentPage || 1,
-                              getTotalPages(index, message.data.rows.length)
+                              getTotalPages(
+                                index,
+                                getFilteredRowCount(
+                                  index,
+                                  message.data.rows,
+                                  message.data.columns
+                                )
+                              )
                             )
                           "
                           class="page-number-btn"
@@ -426,7 +627,14 @@ watch(
                             shouldShowEllipsis(
                               pageNum,
                               paginationState[index]?.currentPage || 1,
-                              getTotalPages(index, message.data.rows.length)
+                              getTotalPages(
+                                index,
+                                getFilteredRowCount(
+                                  index,
+                                  message.data.rows,
+                                  message.data.columns
+                                )
+                              )
                             )
                           "
                           class="page-ellipsis"
@@ -436,11 +644,65 @@ watch(
                       </template>
                     </div>
 
+                    <!-- Jump to Page -->
+                    <div class="jump-to-page">
+                      <input
+                        type="number"
+                        class="jump-to-page-input"
+                        placeholder="Page"
+                        min="1"
+                        :max="
+                          getTotalPages(
+                            index,
+                            getFilteredRowCount(
+                              index,
+                              message.data.rows,
+                              message.data.columns
+                            )
+                          )
+                        "
+                        :value="jumpToPageInput[index] || ''"
+                        @input="
+                          updateJumpToPageInput(index, $event.target.value)
+                        "
+                        @keyup.enter="
+                          handleJumpToPage(
+                            index,
+                            message.data.rows,
+                            message.data.columns
+                          )
+                        "
+                      />
+                      <button
+                        class="jump-btn"
+                        @click="
+                          handleJumpToPage(
+                            index,
+                            message.data.rows,
+                            message.data.columns
+                          )
+                        "
+                        :disabled="
+                          !jumpToPageInput[index] ||
+                          jumpToPageInput[index].length === 0
+                        "
+                      >
+                        Go
+                      </button>
+                    </div>
+
                     <button
                       class="pagination-btn"
                       :disabled="
                         (paginationState[index]?.currentPage || 1) >=
-                        getTotalPages(index, message.data.rows.length)
+                        getTotalPages(
+                          index,
+                          getFilteredRowCount(
+                            index,
+                            message.data.rows,
+                            message.data.columns
+                          )
+                        )
                       "
                       @click="
                         goToPage(
@@ -787,14 +1049,123 @@ html,
   font-size: 0.9rem;
 }
 
+/* Table Container */
+.table-container {
+  margin-top: 10px;
+}
+
+/* Search Container */
+.search-container {
+  padding: 16px;
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 40px 10px 40px;
+  background-color: var(--input-bg);
+  color: var(--text-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.clear-search-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.clear-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+}
+
+.search-results-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding-left: 4px;
+}
+
+.no-search-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background-color: rgba(255, 255, 255, 0.02);
+  text-align: center;
+}
+
+.no-search-results .empty-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.no-search-results p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
 /* Table Wrapper */
 .table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-top: 10px;
+  border-radius: 0 0 8px 8px;
   background-color: var(--bg-dark);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.table-container .table-wrapper {
+  border-radius: 0;
+  border-top: none;
 }
 .data-table {
   width: 100%;
@@ -945,6 +1316,73 @@ html,
   padding: 0 8px;
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+/* Jump to Page */
+.jump-to-page {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-color);
+}
+
+.jump-to-page-input {
+  width: 70px;
+  padding: 8px 10px;
+  background-color: var(--input-bg);
+  color: var(--text-light);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-align: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+
+.jump-to-page-input:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+
+.jump-to-page-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Remove spinner arrows from number input */
+.jump-to-page-input::-webkit-inner-spin-button,
+.jump-to-page-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.jump-to-page-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.jump-btn {
+  padding: 8px 16px;
+  background-color: var(--primary-blue);
+  color: var(--text-light);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.jump-btn:hover:not(:disabled) {
+  background-color: #3182ce;
+  transform: translateY(-1px);
+}
+
+.jump-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Loader "..." */
@@ -1159,6 +1597,36 @@ html,
   .page-number-btn {
     min-width: 32px;
     height: 32px;
+    font-size: 0.85rem;
+  }
+
+  .search-container {
+    padding: 12px;
+  }
+
+  .search-input {
+    font-size: 0.85rem;
+    padding: 8px 36px 8px 36px;
+  }
+
+  .search-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .jump-to-page {
+    margin-left: 8px;
+    padding-left: 8px;
+  }
+
+  .jump-to-page-input {
+    width: 60px;
+    padding: 6px 8px;
+    font-size: 0.85rem;
+  }
+
+  .jump-btn {
+    padding: 6px 12px;
     font-size: 0.85rem;
   }
 }
