@@ -21,6 +21,47 @@ function startNewChat() {
   })
 }
 
+function getColumnType(colName) {
+  const name = colName.toLowerCase()
+
+  // 1️⃣ uang (IDR) → nama kolom yang memang berkaitan dengan saldo/transaksi
+  if (
+    name.includes("saldo") ||
+    name.includes("debit") ||
+    name.includes("kredit")
+  ) {
+    return "currency"
+  }
+
+  // 2️⃣ tanggal / waktu → diformat sebagai tanggal
+  if (name.includes("tanggal") || name.includes("waktu")) {
+    return "datetime"
+  }
+
+  // 3️⃣ kolom khusus "jumlah_nasabah" → tidak pakai format uang
+  if (name === "jumlah_nasabah") {
+    return "number"
+  }
+
+  // 4️⃣ sisanya = teks biasa
+  return "text"
+}
+
+function formatCell(value, colName) {
+  const type = getColumnType(colName)
+  if (type === "currency") {
+    return formatter.format(parseFloat(value) || 0)
+  }
+  if (type === "datetime") {
+    const d = new Date(value)
+    return isNaN(d)
+      ? value
+      : d.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })
+  }
+  // type === 'number' atau 'text' → tampil apa adanya
+  return value
+}
+
 async function handleSubmit() {
   if (!userInput.value.trim()) return
   isLoading.value = true
@@ -196,16 +237,6 @@ watch(
                 </svg>
                 <p>Tidak ada data ditemukan.</p>
               </div>
-              <div
-                v-else-if="message.data.rows.length === 0"
-                class="empty-state"
-              >
-                <svg class="empty-icon">...</svg>
-                <p>Belum ada data untuk ditampilkan</p>
-                <button @click="clearFilter" class="clear-filter-btn">
-                  Reset Filter
-                </button>
-              </div>
               <div v-else class="table-wrapper">
                 <table class="data-table">
                   <thead>
@@ -229,36 +260,9 @@ watch(
                       class="table-row"
                     >
                       <td v-for="(cellValue, cIndex) in rowArray" :key="cIndex">
-                        <template
-                          v-if="
-                            message.data.columns[cIndex].includes('saldo') ||
-                            message.data.columns[cIndex].includes('jumlah') ||
-                            message.data.columns[cIndex].includes('debit') ||
-                            message.data.columns[cIndex].includes('kredit')
-                          "
-                        >
-                          <span class="number-cell">{{
-                            formatter.format(parseFloat(cellValue) || 0)
-                          }}</span>
-                        </template>
-                        <template
-                          v-else-if="
-                            message.data.columns[cIndex].includes(
-                              'waktu_transaksi'
-                            ) ||
-                            message.data.columns[cIndex].includes('tanggal')
-                          "
-                        >
-                          {{
-                            new Date(cellValue).toLocaleString("id-ID", {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })
-                          }}
-                        </template>
-                        <template v-else>
-                          {{ cellValue }}
-                        </template>
+                        {{
+                          formatCell(cellValue, message.data.columns[cIndex])
+                        }}
                       </td>
                     </tr>
                   </tbody>
