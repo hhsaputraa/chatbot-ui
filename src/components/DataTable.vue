@@ -1,5 +1,10 @@
 <template>
   <div class="table-container">
+    <div class="export-controls">
+      <span>Export Data To:</span>
+      <button @click="exportToCSV" class="export-btn csv">CSV</button>
+      <button @click="exportToPDF" class="export-btn pdf">PDF</button>
+    </div>
     <!-- Search Bar -->
     <SearchBar
       :search-query="searchQuery"
@@ -76,6 +81,8 @@
 <script setup>
 import { computed, onMounted } from "vue"
 import SearchBar from "./SearchBar.vue"
+import { jsPDF } from "jspdf"
+import "jspdf-autotable"
 import PaginationControls from "./PaginationControls.vue"
 import { useFormatting } from "../composables/useFormatting"
 import { useTablePagination } from "../composables/useTablePagination"
@@ -110,6 +117,7 @@ const {
   getFilteredRowCount,
   goToPage,
   changeRowsPerPage,
+  getFilteredRows,
 } = useTablePagination()
 
 const { handleJumpToPage: jumpToPageHelper, clearJumpToPageInput } =
@@ -176,6 +184,89 @@ function handleJumpToPage() {
     clearJumpToPageInput.bind(null, jumpToPageInput)
   )
 }
+function getExportData() {
+  // Gunakan fungsi dari composable Anda untuk mendapatkan semua baris yang cocok dengan filter
+  const filteredRows = getFilteredRows(
+    props.messageIndex,
+    props.rows,
+    props.columns,
+    formatCell
+  )
+
+  // 1. Buat Headers (memakai formatHeader Anda)
+  const headers = props.columns.map(col => formatHeader(col))
+
+  // 2. Buat Body (memakai formatCell Anda)
+  const body = filteredRows.map(rowArray => {
+    return rowArray.map((cellValue, cIndex) => {
+      // Format setiap sel persis seperti yang terlihat di tabel
+      return formatCell(cellValue, props.columns[cIndex])
+    })
+  })
+
+  return { headers, body }
+}
+
+/**
+ * Memicu unduhan file CSV
+ */
+function exportToCSV() {
+  const { headers, body } = getExportData()
+
+  // Gabungkan header
+  let csvContent = headers.join(",") + "\n"
+
+  // Gabungkan body
+  body.forEach(row => {
+    // Pastikan nilai yang mengandung koma dibungkus tanda kutip
+    const escapedRow = row.map(cell => `"${String(cell).replace(/"/g, '""')}"`)
+    csvContent += escapedRow.join(",") + "\n"
+  })
+
+  // Buat Blob dan picu download
+  const blob = new Blob([csvContent], {
+    type: "text/csv;charset=utf-IS0-8859-1;",
+  })
+  const link = document.createElement("a")
+  const url = URL.createObjectURL(blob)
+  link.setAttribute("href", url)
+  link.setAttribute("download", "export_data.csv")
+  link.style.visibility = "hidden"
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+/**
+ * Memicu unduhan file PDF
+ */
+function exportToPDF() {
+  const { headers, body } = getExportData()
+
+  const doc = new jsPDF({
+    orientation: "landscape", // Gunakan landscape jika kolomnya banyak
+  })
+
+  doc.autoTable({
+    head: [headers], // Head harus berupa array di dalam array
+    body: body,
+    startY: 20, // Posisi awal tabel
+    // Opsi styling
+    theme: "grid", // 'striped', 'grid', 'plain'
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+    },
+    headStyles: {
+      fillColor: [41, 128, 185], // Warna biru
+      textColor: 255,
+      fontStyle: "bold",
+    },
+  })
+
+  doc.text("Laporan Data", 14, 15) // Judul
+  doc.save("export_data.pdf") // Nama file
+}
 </script>
 
 <style scoped>
@@ -199,7 +290,46 @@ function handleJumpToPage() {
   scroll-behavior: smooth;
 }
 
-.table-container .table-wrapper {
+.export-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.export-controls span {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.export-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--input-bg);
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.export-btn.csv:hover {
+  background-color: #38a169; /* Hijau */
+  border-color: #38a169;
+}
+
+.export-btn.pdf:hover {
+  background-color: #e53e3e; /* Merah */
+  border-color: #e53e3e;
+}
+
+/* Sesuaikan SearchBar agar tidak punya border radius atas */
+.table-container .search-container {
   border-radius: 0;
   border-top: none;
 }

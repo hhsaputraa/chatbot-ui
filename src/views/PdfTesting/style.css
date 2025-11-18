@@ -1,0 +1,50 @@
+.pdf-container {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+h1 {
+  color: var(--text-light);
+  margin-bottom: 1rem;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  text-decoration: none; /* Hilangkan garis bawah link */
+  transition: transform 0.2s, box-shadow 0.2s;
+  color: #fff;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Gaya Tombol View (Biru) */
+.btn-view {
+  background-color: var(--primary-blue);
+  border: 1px solid var(--primary-blue);
+}
+
+/* Gaya Tombol Download (Hijau - kita hardcode dikit atau pake var lain) */
+.btn-download {
+  background-color: #48bb78; /* Hijau segar */
+  border: 1px solid #48bb78;
+}
+
+.back-link {
+  margin-top: 2rem;
+  color: var(--text-muted);
+}
