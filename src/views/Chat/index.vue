@@ -27,6 +27,11 @@ function startNewChat() {
   })
 }
 
+function handleSuggestionClick(text) {
+  userInput.value = text
+  handleSubmit()
+}
+
 async function handleSubmit() {
   if (!userInput.value.trim()) return
   isLoading.value = true
@@ -48,17 +53,34 @@ async function handleSubmit() {
       throw new Error(data.error || "Terjadi kesalahan dari API")
     }
     const messageIndex = messages.value.length
-    messages.value.push({ role: "bot", type: "data", data: data })
-
-    // Initialize pagination for this message
-    if (data.rows && data.rows.length > 0) {
-      initPagination(messageIndex, data.rows.length)
+    if (data.status === "ambiguous") {
+      messages.value.push({
+        role: "bot",
+        type: "suggestion", // Tipe pesan baru
+        content: data.message,
+        suggestions: data.suggestions,
+      })
+    }
+    // Handle Data Table (seperti biasa)
+    else if (data.rows) {
+      messages.value.push({ role: "bot", type: "data", data: data })
+      if (data.rows.length > 0) {
+        initPagination(messageIndex, data.rows.length)
+      }
+    }
+    // Fallback untuk pesan teks biasa (jika ada)
+    else {
+      messages.value.push({
+        role: "bot",
+        type: "text",
+        content: "Perintah berhasil dieksekusi.",
+      })
     }
   } catch (error) {
     let errorMsg = error.message
     if (error.message.includes("Failed to fetch")) {
       errorMsg =
-        "Gagal terhubung ke backend (http://localhost:8097). Pastikan backend Go kamu sudah jalan!"
+        "Gagal terhubung ke backend. Pastikan backend Go kamu sudah jalan!"
     }
     messages.value.push({ role: "bot", type: "error", content: errorMsg })
   }
@@ -142,6 +164,7 @@ watch(
           :message="message"
           :message-index="index"
           :style="{ animationDelay: `${index * 0.05}s` }"
+          @suggestion-click="handleSuggestionClick"
         />
 
         <!-- Loading Indicator -->
