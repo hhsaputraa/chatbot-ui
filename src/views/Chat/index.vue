@@ -27,7 +27,15 @@ function startNewChat() {
   })
 }
 
-async function handleSubmit() {
+function handleSuggestionClick(suggestionText, triggerPrompt) {
+  userInput.value = suggestionText
+  handleSubmit(triggerPrompt)
+}
+
+async function handleSubmit(triggerPrompt = null) {
+  if (triggerPrompt && typeof triggerPrompt === "object") {
+    triggerPrompt = null
+  }
   if (!userInput.value.trim()) return
   isLoading.value = true
   const currentMessage = userInput.value
@@ -36,6 +44,9 @@ async function handleSubmit() {
   userInput.value = ""
 
   const requestPayload = { prompt: currentMessage }
+  if (triggerPrompt && typeof triggerPrompt === "string") {
+    requestPayload.trigger_prompt = triggerPrompt
+  }
 
   try {
     const response = await fetch("http://localhost:8097/api/query", {
@@ -48,19 +59,70 @@ async function handleSubmit() {
       throw new Error(data.error || "Terjadi kesalahan dari API")
     }
     const messageIndex = messages.value.length
-    messages.value.push({ role: "bot", type: "data", data: data })
-
-    // Initialize pagination for this message
-    if (data.rows && data.rows.length > 0) {
-      initPagination(messageIndex, data.rows.length)
+    if (data.status === "ambiguous") {
+      messages.value.push({
+        role: "bot",
+        type: "suggestion", // Tipe pesan baru
+        content: data.message,
+        suggestions: data.suggestions,
+        originalPrompt: currentMessage,
+      })
+    }
+    // Handle Data Table (seperti biasa)
+    else if (data.rows) {
+      messages.value.push({
+        role: "bot",
+        type: "data",
+        data: data,
+        relatedPrompt: currentMessage,
+      })
+      if (data.rows.length > 0) {
+        initPagination(messageIndex, data.rows.length)
+      }
+    }
+    // Fallback untuk pesan teks biasa (jika ada)
+    else {
+      messages.value.push({
+        role: "bot",
+        type: "text",
+        content: "Perintah berhasil dieksekusi.",
+      })
     }
   } catch (error) {
     let errorMsg = error.message
     if (error.message.includes("Failed to fetch")) {
       errorMsg =
-        "Gagal terhubung ke backend (http://localhost:8097). Pastikan backend Go kamu sudah jalan!"
+        "Gagal terhubung ke backend. Pastikan backend Go kamu sudah jalan!"
     }
     messages.value.push({ role: "bot", type: "error", content: errorMsg })
+  }
+  isLoading.value = false
+}
+
+async function handleReportWrong(prompt) {
+  if (
+    !confirm(
+      `Apakah Anda yakin jawaban untuk "${prompt}" ini salah? Saya akan melupakannya.`
+    )
+  )
+    return
+
+  isLoading.value = true
+  try {
+    const response = await fetch("http://localhost:8097/api/cache/forget", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: prompt }),
+    })
+
+    if (!response.ok) throw new Error("Gagal menghapus ingatan")
+
+    alert("Ingatan berhasil dihapus! Silakan tanyakan ulang pertanyaan Anda.")
+
+    // Opsional: Refresh halaman atau hapus chat terakhir agar bersih
+    // messages.value.pop() // kalau mau hapus pesan terakhir
+  } catch (error) {
+    alert("Error: " + error.message)
   }
   isLoading.value = false
 }
@@ -142,6 +204,10 @@ watch(
           :message="message"
           :message-index="index"
           :style="{ animationDelay: `${index * 0.05}s` }"
+          @suggestion-click="
+            handleSuggestionClick($event, message.originalPrompt)
+          "
+          @report-wrong="handleReportWrong"
         />
 
         <!-- Loading Indicator -->

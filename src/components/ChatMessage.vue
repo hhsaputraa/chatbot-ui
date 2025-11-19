@@ -66,6 +66,40 @@
           :rows="message.data.rows"
           :columns="message.data.columns"
         />
+        <div
+          v-if="message.data && message.data.is_cached"
+          class="cache-warning"
+        >
+          <div class="warning-content">
+            <span class="warning-icon">⚡</span>
+            <span class="warning-text">
+              Jawaban ini diambil dari ingatan masa lalu.
+            </span>
+          </div>
+
+          <button
+            class="btn-reset"
+            @click="$emit('report-wrong', message.relatedPrompt)"
+            title="Klik jika jawaban ini salah/ngawur"
+          >
+            Jawaban Salah? Lupakan!
+          </button>
+        </div>
+      </template>
+      <template v-else-if="message.type === 'suggestion'">
+        <div class="suggestion-container">
+          <p class="suggestion-text">{{ message.content }}</p>
+          <div class="suggestion-chips">
+            <button
+              v-for="(item, index) in message.suggestions"
+              :key="index"
+              class="suggestion-chip"
+              @click="$emit('suggestion-click', item)"
+            >
+              {{ item }}
+            </button>
+          </div>
+        </div>
       </template>
     </div>
 
@@ -78,6 +112,7 @@
 
 <script setup>
 import DataTable from "./DataTable.vue"
+const emit = defineEmits(["suggestion-click", "report-wrong"])
 
 defineProps({
   message: {
@@ -192,6 +227,87 @@ defineProps({
 .no-data p {
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+.suggestion-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.suggestion-text {
+  margin: 0;
+  font-weight: 500;
+  color: #e2e8f0; /* Text terang */
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.suggestion-chip {
+  background-color: rgba(66, 153, 225, 0.15);
+  border: 1px solid rgba(66, 153, 225, 0.3);
+  color: #63b3ed;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.suggestion-chip:hover {
+  background-color: rgba(66, 153, 225, 0.25);
+  transform: translateY(-1px);
+}
+
+.suggestion-chip:active {
+  transform: translateY(0);
+}
+
+.cache-warning {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background-color: #fff8e1; /* Kuning muda lembut */
+  border: 1px solid #ffe0b2;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #795548;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.warning-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.warning-icon {
+  font-size: 1.2em;
+}
+
+/* Tombol Reset */
+.btn-reset {
+  align-self: flex-start;
+  background-color: #fff;
+  border: 1px solid #ff9800;
+  color: #e65100;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-reset:hover {
+  background-color: #ff9800;
+  color: white;
 }
 
 /* Animation */
