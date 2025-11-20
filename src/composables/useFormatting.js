@@ -20,17 +20,26 @@ export function useFormatting() {
   function getColumnType(colName) {
     const name = colName.toLowerCase()
 
-    // Currency columns (IDR)
+    // Currency columns (IDR) - expanded detection
     if (
       name.includes("saldo") ||
       name.includes("debit") ||
-      name.includes("kredit")
+      name.includes("kredit") ||
+      name.includes("total") ||
+      name.includes("masuk") ||
+      name.includes("keluar") ||
+      name.includes("jumlah") ||
+      name.includes("nominal") ||
+      name.includes("amount") ||
+      name.includes("harga") ||
+      name.includes("biaya") ||
+      name.includes("bayar")
     ) {
       return "currency"
     }
 
     // Date/time columns
-    if (name.includes("tanggal") || name.includes("waktu")) {
+    if (name.includes("tanggal") || name.includes("waktu") || name.includes("date") || name.includes("time")) {
       return "datetime"
     }
 

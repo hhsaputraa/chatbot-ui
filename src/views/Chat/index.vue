@@ -32,6 +32,43 @@ function handleSuggestionClick(text) {
   handleSubmit()
 }
 
+/**
+ * Format error message based on backend error codes
+ * @param {Object} errorData - Error response from backend
+ * @returns {string} - Formatted error message for user
+ */
+function formatErrorMessage(errorData) {
+  const { error_code, message, error_detail } = errorData
+
+  switch (error_code) {
+    case "METHOD_NOT_ALLOWED":
+      return "Metode HTTP tidak diizinkan. Pastikan menggunakan POST request."
+
+    case "INVALID_JSON":
+      return "Format permintaan tidak valid. Silakan coba lagi."
+
+    case "EMPTY_PROMPT":
+      return "Pertanyaan tidak boleh kosong. Silakan masukkan pertanyaan Anda."
+
+    case "AI_GENERATION_FAILED":
+      return "Sistem AI sedang mengalami gangguan. Silakan coba lagi dalam beberapa saat."
+
+    case "EMPTY_SQL":
+      return "AI tidak dapat menghasilkan query yang valid. Silakan perbaiki pertanyaan Anda."
+
+    case "QUERY_EXECUTION_FAILED":
+      return `Query tidak dapat dieksekusi. ${
+        message || "Silakan perbaiki pertanyaan Anda."
+      }`
+
+    default:
+      // Fallback to backend message or generic error
+      return (
+        message || "Terjadi kesalahan yang tidak diketahui. Silakan coba lagi."
+      )
+  }
+}
+
 async function handleSubmit() {
   if (!userInput.value.trim()) return
   isLoading.value = true
@@ -48,42 +85,85 @@ async function handleSubmit() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestPayload),
     })
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.error || "Terjadi kesalahan dari API")
+
+    // Always try to parse JSON response
+    let data
+    try {
+      data = await response.json()
+    } catch (parseError) {
+      // If JSON parsing fails, create a generic error
+      data = {
+        status: "error",
+        message: "Respons dari server tidak valid",
+        error_code: "INVALID_RESPONSE",
+      }
     }
-    const messageIndex = messages.value.length
-    if (data.status === "ambiguous") {
+
+    // Handle different response statuses
+    if (data.status === "error") {
+      // Backend returned an error status
+      const errorMessage = formatErrorMessage(data)
       messages.value.push({
         role: "bot",
-        type: "suggestion", // Tipe pesan baru
+        type: "error",
+        content: errorMessage,
+        errorCode: data.error_code,
+        errorDetail: data.error_detail,
+      })
+    } else if (data.status === "ambiguous") {
+      // Handle ambiguous queries with suggestions
+      messages.value.push({
+        role: "bot",
+        type: "suggestion",
         content: data.message,
         suggestions: data.suggestions,
       })
-    }
-    // Handle Data Table (seperti biasa)
-    else if (data.rows) {
-      messages.value.push({ role: "bot", type: "data", data: data })
-      if (data.rows.length > 0) {
-        initPagination(messageIndex, data.rows.length)
+    } else if (data.status === "success" && data.data && data.data.rows) {
+      // Handle successful data response
+      const messageIndex = messages.value.length
+      messages.value.push({ role: "bot", type: "data", data: data.data })
+      if (data.data.rows.length > 0) {
+        initPagination(messageIndex, data.data.rows.length)
       }
-    }
-    // Fallback untuk pesan teks biasa (jika ada)
-    else {
+    } else if (data.status === "success") {
+      // Handle successful text response
       messages.value.push({
         role: "bot",
         type: "text",
-        content: "Perintah berhasil dieksekusi.",
+        content: data.message || "Perintah berhasil dieksekusi.",
+      })
+    } else {
+      // Unknown status
+      messages.value.push({
+        role: "bot",
+        type: "error",
+        content: "Respons dari server tidak dikenali.",
       })
     }
   } catch (error) {
-    let errorMsg = error.message
-    if (error.message.includes("Failed to fetch")) {
+    // Handle network errors and other fetch failures
+    let errorMsg = "Terjadi kesalahan yang tidak diketahui."
+
+    if (
+      error.message.includes("Failed to fetch") ||
+      error.message.includes("NetworkError")
+    ) {
       errorMsg =
-        "Gagal terhubung ke backend. Pastikan backend Go kamu sudah jalan!"
+        "Gagal terhubung ke backend. Pastikan server Go Anda sudah berjalan di http://localhost:8097"
+    } else if (error.message.includes("JSON")) {
+      errorMsg = "Respons dari server tidak valid. Silakan coba lagi."
+    } else if (error.name === "TypeError") {
+      errorMsg = "Terjadi kesalahan jaringan. Periksa koneksi internet Anda."
     }
-    messages.value.push({ role: "bot", type: "error", content: errorMsg })
+
+    messages.value.push({
+      role: "bot",
+      type: "error",
+      content: errorMsg,
+      technicalDetail: error.message,
+    })
   }
+
   isLoading.value = false
 }
 
