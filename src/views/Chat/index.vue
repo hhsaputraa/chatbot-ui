@@ -86,12 +86,10 @@ async function handleSubmit() {
       body: JSON.stringify(requestPayload),
     })
 
-    // Always try to parse JSON response
     let data
     try {
       data = await response.json()
     } catch (parseError) {
-      // If JSON parsing fails, create a generic error
       data = {
         status: "error",
         message: "Respons dari server tidak valid",
@@ -99,9 +97,7 @@ async function handleSubmit() {
       }
     }
 
-    // Handle different response statuses
     if (data.status === "error") {
-      // Backend returned an error status
       const errorMessage = formatErrorMessage(data)
       messages.value.push({
         role: "bot",

@@ -35,7 +35,23 @@
               :key="cIndex"
               :title="formatCell(cellValue, columns[cIndex])"
             >
-              {{ formatCell(cellValue, columns[cIndex]) }}
+              <template v-if="columns[cIndex] === 'action'">
+                <button
+                  class="action-btn edit"
+                  @click.stop="emitEdit(rowArray)"
+                >
+                  Edit
+                </button>
+                <button
+                  class="action-btn delete"
+                  @click.stop="emitDelete(rowArray)"
+                >
+                  Delete
+                </button>
+              </template>
+              <template v-else>
+                {{ formatCell(cellValue, columns[cIndex]) }}
+              </template>
             </td>
           </tr>
         </tbody>
@@ -102,6 +118,19 @@ const props = defineProps({
     required: true,
   },
 })
+
+const emit = defineEmits(["edit-row", "delete-row"])
+
+function emitEdit(rowArray) {
+  // assume id is at index 0
+  const id = rowArray && rowArray[0]
+  emit("edit-row", id)
+}
+
+function emitDelete(rowArray) {
+  const id = rowArray && rowArray[0]
+  emit("delete-row", id)
+}
 
 // Composables
 const { formatCell, formatHeader } = useFormatting()
@@ -460,6 +489,24 @@ function exportToPDF() {
 .no-search-results p {
   color: var(--text-muted);
   font-size: 0.95rem;
+}
+
+/* Action buttons */
+.action-btn {
+  padding: 6px 8px;
+  margin-right: 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.action-btn.edit:hover {
+  background: rgba(56, 161, 105, 0.12);
+}
+.action-btn.delete:hover {
+  background: rgba(229, 62, 62, 0.12);
 }
 
 /* Responsive Design */
