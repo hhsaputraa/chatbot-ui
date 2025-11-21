@@ -82,6 +82,8 @@ export function useFormatting() {
    * @returns {string} - Formatted header
    */
   function formatHeader(headerKey) {
+    if (!headerKey) return ""
+    if (headerKey === "id") return "No."
     return headerKey
       .replace(/_/g, " ")
       .replace(/\b\w/g, c => c.toUpperCase())

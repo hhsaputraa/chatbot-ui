@@ -26,8 +26,8 @@
         </thead>
         <tbody>
           <tr
-            v-for="(rowArray, rIndex) in paginatedRows"
-            :key="rIndex"
+            v-for="(rowArray, rIndex) in paddedRows"
+            :key="rowKey(rowArray, rIndex)"
             class="table-row"
           >
             <td
@@ -35,20 +35,34 @@
               :key="cIndex"
               :title="formatCell(cellValue, columns[cIndex])"
             >
-              <template v-if="columns[cIndex] === 'action'">
-                <button
-                  class="action-btn edit"
-                  @click.stop="emitEdit(rowArray)"
+              <!-- Display sequential number for id column while keeping actual id in data -->
+              <template v-if="columns[cIndex] === 'id'">
+                <span
+                  v-if="
+                    paginatedRows[rIndex] && paginatedRows[rIndex][0] !== ''
+                  "
+                  >{{ (currentPage - 1) * rowsPerPage + rIndex + 1 }}</span
                 >
-                  Edit
-                </button>
-                <button
-                  class="action-btn delete"
-                  @click.stop="emitDelete(rowArray)"
-                >
-                  Delete
-                </button>
               </template>
+
+              <!-- Action buttons only for real rows (have id) -->
+              <template v-else-if="columns[cIndex] === 'action'">
+                <template v-if="rowArray && rowArray[0]">
+                  <button
+                    class="action-btn edit"
+                    @click.stop="emitEdit(rowArray)"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    class="action-btn delete"
+                    @click.stop="emitDelete(rowArray)"
+                  >
+                    Delete
+                  </button>
+                </template>
+              </template>
+
               <template v-else>
                 {{ formatCell(cellValue, columns[cIndex]) }}
               </template>
@@ -95,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from "vue"
+import { computed, onMounted, watch } from "vue"
 import SearchBar from "./SearchBar.vue"
 import { jsPDF } from "jspdf"
 import "jspdf-autotable"
@@ -116,6 +130,18 @@ const props = defineProps({
   columns: {
     type: Array,
     required: true,
+  },
+  // key to trigger reset (e.g., collection name)
+  resetKey: {
+    type: [String, Number],
+    required: false,
+    default: null,
+  },
+  // keep table height by padding rows to rowsPerPage (optional)
+  keepHeight: {
+    type: Boolean,
+    required: false,
+    default: false,
   },
 })
 
@@ -157,6 +183,24 @@ onMounted(() => {
   initPagination(props.messageIndex, props.rows.length)
 })
 
+// Watch for explicit reset key (e.g., collection change) and rows length changes
+watch(
+  () => props.resetKey,
+  () => {
+    // reset search and pagination for this messageIndex
+    clearSearch(props.messageIndex)
+    initPagination(props.messageIndex, props.rows.length)
+  }
+)
+
+watch(
+  () => props.rows.length,
+  (newLen, oldLen) => {
+    // if number of rows changed drastically, re-init pagination to avoid staying on invalid page
+    initPagination(props.messageIndex, props.rows.length)
+  }
+)
+
 // Computed properties
 const searchQuery = computed(() => searchState.value[props.messageIndex] || "")
 const currentPage = computed(
@@ -178,6 +222,29 @@ const totalCount = computed(() => props.rows.length)
 const paginatedRows = computed(() =>
   getPaginatedRows(props.messageIndex, props.rows, props.columns, formatCell)
 )
+
+// Optionally ensure table keeps stable height by padding rows when last page has fewer items
+const paddedRows = computed(() => {
+  const pageRows = paginatedRows.value || []
+  if (!props.keepHeight) return pageRows
+  const perPage = rowsPerPage.value || 10
+  const target = perPage
+  const colsCount = props.columns.length
+  const padded = pageRows.slice()
+  while (padded.length < target) {
+    // create an empty row with same number of columns
+    const emptyRow = new Array(colsCount).fill("")
+    padded.push(emptyRow)
+  }
+  return padded
+})
+
+function rowKey(rowArray, rIndex) {
+  // For real rows use the id if present (first column), otherwise fallback to index
+  const id = rowArray && rowArray[0]
+  if (id) return String(id)
+  return `empty-${rIndex}`
+}
 
 const totalPages = computed(() =>
   getTotalPages(props.messageIndex, filteredCount.value)

@@ -94,6 +94,25 @@
   height: 20px;
 }
 
+/* Assistant config button in sidebar footer */
+.assistant-config-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-light);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.assistant-config-btn:hover {
+  background: rgba(66, 153, 225, 0.06);
+  transform: translateY(-1px);
+  border-color: var(--primary-blue);
+}
+
 /* Main Chat Area */
 .chat-main {
   flex: 1;

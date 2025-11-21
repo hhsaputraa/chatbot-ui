@@ -139,6 +139,32 @@
   border-bottom: 2px solid var(--border-color);
 }
 
+/* Collection control buttons */
+.collection-controls button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+  color: var(--text-light);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+.collection-controls button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.collection-controls button.active {
+  /* medium/active color */
+  background: var(--primary-blue);
+  border-color: var(--primary-blue);
+  color: #fff;
+}
+.collection-controls button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* Scrollbar Styling */
 .page-content::-webkit-scrollbar {
   width: 8px;
@@ -260,4 +286,29 @@
   border: 1px solid var(--border-color);
   color: var(--text-light);
   border-radius: 6px;
+}
+
+/* Toasts */
+.toast-container {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 99999;
+}
+.toast {
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: #fff;
+  min-width: 200px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  font-weight: 600;
+}
+.toast.success {
+  background: #22c55e;
+}
+.toast.error {
+  background: #ef4444;
 }

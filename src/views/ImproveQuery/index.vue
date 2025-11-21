@@ -128,6 +128,16 @@ const showDeleteModal = ref(false)
 const selectedId = ref(null)
 const editForm = ref({})
 const lastActionMessage = ref("")
+const saveLoading = ref(false)
+// simple local toast notifications
+const toasts = ref([])
+function showToast(message, type = "success", timeout = 3500) {
+  const id = Date.now() + Math.random()
+  toasts.value.push({ id, message, type })
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id)
+  }, timeout)
+}
 
 async function fetchCollection(collection) {
   loading.value = true
@@ -229,11 +239,77 @@ function openDeleteModal(id) {
 
 function saveEdit() {
   // Prepare payload according to example
-  const payload = { collection: activeCollection.value, id: selectedId.value }
+  const payloadBase = {
+    collection: activeCollection.value,
+    id: selectedId.value,
+  }
+
   if (activeCollection.value === "bpr_supra_cache") {
-    payload.prompt = editForm.value.prompt_asli ?? ""
-    payload.sql = editForm.value.sql_query ?? ""
-  } else if (activeCollection.value === "bpr_supra_rag") {
+    const payload = {
+      ...payloadBase,
+      prompt: editForm.value.prompt_asli ?? "",
+      sql: editForm.value.sql_query ?? "",
+    }
+
+    // send update to backend
+    saveLoading.value = true
+    error.value = null
+    fetch("http://localhost:8097/admin/qdrant/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(async res => {
+        if (!res.ok) {
+          const txt = await res.text()
+          throw new Error(`HTTP ${res.status} ${txt}`)
+        }
+        return res.json().catch(() => ({}))
+      })
+      .then(resp => {
+        // Update local UI: update rawData and rows
+        const idx = rawData.value.findIndex(i => i.id === selectedId.value)
+        if (idx !== -1) {
+          rawData.value[idx].payload = rawData.value[idx].payload || {}
+          rawData.value[idx].payload.prompt_asli =
+            editForm.value.prompt_asli ?? rawData.value[idx].payload.prompt_asli
+          rawData.value[idx].payload.sql_query =
+            editForm.value.sql_query ?? rawData.value[idx].payload.sql_query
+
+          // also update rows array (id at index 0)
+          const rowIdx = rows.value.findIndex(r => r[0] === selectedId.value)
+          if (rowIdx !== -1) {
+            // columns for cache are ["id","prompt_asli","sql_query","action"]
+            // keep action placeholder as empty string so DataTable renders action buttons
+            rows.value[rowIdx] = [
+              selectedId.value,
+              rawData.value[idx].payload.prompt_asli,
+              rawData.value[idx].payload.sql_query,
+              "",
+            ]
+          }
+        }
+
+        lastActionMessage.value = `Update successful for ${payload.collection} id=${payload.id}`
+        showEditModal.value = false
+        showToast("Update saved successfully", "success")
+      })
+      .catch(err => {
+        console.error("Update error", err)
+        error.value = String(err)
+        lastActionMessage.value = `Update failed: ${err}`
+        showToast("Update failed: " + String(err), "error")
+      })
+      .finally(() => {
+        saveLoading.value = false
+      })
+
+    return
+  }
+
+  // other collections: prepare payload but don't automatically POST
+  const payload = { ...payloadBase }
+  if (activeCollection.value === "bpr_supra_rag") {
     // map prompt_preview -> prompt, content -> sql/content
     payload.prompt = editForm.value.prompt_preview ?? ""
     payload.content = editForm.value.content ?? ""
@@ -252,15 +328,12 @@ function updateEditFormFromJSON(e) {
   try {
     const v = JSON.parse(e.target.value)
     editForm.value = v
-  } catch (err) {
-    // ignore parse error while typing
-  }
+  } catch (err) {}
 }
 
 function confirmDelete() {
   const payload = { collection: activeCollection.value, id: selectedId.value }
   console.log("Prepared delete payload:", payload)
-  // Optimistically remove from UI
   rawData.value = rawData.value.filter(i => i.id !== selectedId.value)
   rows.value = rows.value.filter(r => r[0] !== selectedId.value)
   lastActionMessage.value = `Deleted ${payload.collection} id=${payload.id}`
@@ -314,28 +387,6 @@ function confirmDelete() {
     <!-- Main Content -->
     <main class="page-content">
       <div class="content-wrapper">
-        <!-- Info Banner -->
-        <div class="info-banner">
-          <svg
-            class="info-icon"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
-            />
-          </svg>
-          <div class="info-text">
-            <strong>Catatan:</strong> Ini adalah konten placeholder. Fitur ini
-            akan terhubung ke API endpoint di masa mendatang untuk menampilkan
-            data query improvement yang sebenarnya.
-          </div>
-        </div>
-
         <!-- Data Table -->
         <div class="table-section">
           <h2 class="section-title">Riwayat Query Improvement</h2>
@@ -350,16 +401,18 @@ function confirmDelete() {
             "
           >
             <button
-              :disabled="loading"
+              :disabled="loading || activeCollection === 'bpr_supra_rag'"
               @click.prevent="fetchCollection('bpr_supra_rag')"
               :class="{ active: activeCollection === 'bpr_supra_rag' }"
+              :aria-pressed="activeCollection === 'bpr_supra_rag'"
             >
               Load RAG
             </button>
             <button
-              :disabled="loading"
+              :disabled="loading || activeCollection === 'bpr_supra_cache'"
               @click.prevent="fetchCollection('bpr_supra_cache')"
               :class="{ active: activeCollection === 'bpr_supra_cache' }"
+              :aria-pressed="activeCollection === 'bpr_supra_cache'"
             >
               Load CACHE
             </button>
@@ -377,6 +430,8 @@ function confirmDelete() {
             :message-index="messageIndex"
             :rows="rows"
             :columns="columns"
+            :reset-key="activeCollection"
+            :keep-height="true"
             @edit-row="openEditModal"
             @delete-row="openDeleteModal"
           />
@@ -415,8 +470,12 @@ function confirmDelete() {
                   justify-content: flex-end;
                 "
               >
-                <button @click="showEditModal = false">Cancel</button>
-                <button @click="saveEdit">Save</button>
+                <button @click="showEditModal = false" :disabled="saveLoading">
+                  Cancel
+                </button>
+                <button @click="saveEdit" :disabled="saveLoading">
+                  {{ saveLoading ? "Saving..." : "Save" }}
+                </button>
               </div>
             </div>
           </div>
@@ -448,6 +507,12 @@ function confirmDelete() {
             style="margin-top: 8px; color: var(--text-muted)"
           >
             {{ lastActionMessage }}
+          </div>
+          <!-- Toast container -->
+          <div class="toast-container">
+            <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type">
+              {{ t.message }}
+            </div>
           </div>
         </div>
       </div>

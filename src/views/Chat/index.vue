@@ -8,9 +8,11 @@ const userInput = ref("")
 const isLoading = ref(false)
 const chatContainer = ref(null)
 
-// Use pagination composable
 const { initPagination } = useTablePagination()
 
+const WELCOME_TITLE = import.meta.env.VITE_CHAT_WELCOME_TITLE
+const WELCOME_SUBTITLE = import.meta.env.VITE_CHAT_WELCOME_SUBTITLE
+const START_MESSAGE = import.meta.env.VITE_CHAT_START_MESSAGE
 onMounted(() => {
   startNewChat()
 })
@@ -18,12 +20,7 @@ onMounted(() => {
 function startNewChat() {
   messages.value = []
   nextTick(() => {
-    messages.value.push({
-      role: "bot",
-      type: "text",
-      content:
-        "Halo! Saya adalah AI asisten bank. Apa yang ingin Anda ketahui?",
-    })
+    messages.value.push({ role: "bot", type: "text", content: START_MESSAGE })
   })
 }
 
@@ -230,10 +227,8 @@ watch(
       >
         <!-- Welcome Card -->
         <div v-if="messages.length === 1" class="welcome-card">
-          <h2>Halo, saya asisten bank Anda 🤖</h2>
-          <p>
-            Tanyakan apa saja tentang rekening, transaksi, saldo, atau nasabah.
-          </p>
+          <h2>{{ WELCOME_TITLE }}</h2>
+          <p>{{ WELCOME_SUBTITLE }}</p>
           <div class="suggestions">
             <span
               @click="
