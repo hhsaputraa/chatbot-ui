@@ -24,32 +24,44 @@
 }
 
 .back-button {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background-color: var(--input-bg);
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--input-bg);
   color: var(--text-light);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 0.9rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
   text-decoration: none;
-  margin-bottom: 16px;
+  transition: all 0.25s ease;
+  white-space: nowrap;
 }
 
 .back-button:hover {
-  background-color: var(--primary-blue);
+  background: var(--primary-blue);
   border-color: var(--primary-blue);
+  color: white;
   transform: translateX(-4px);
-  box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
 }
 
 .back-button .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.icon {
+  /* back button */
   width: 18px;
   height: 18px;
+}
+
+.title-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--primary-blue);
 }
 
 .page-title {
@@ -62,6 +74,20 @@
   margin: 0 0 8px 0;
 }
 
+.header-title {
+  text-align: center;
+  flex: 1;
+}
+.page-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-light);
+  margin: 0;
+}
 .title-icon {
   width: 32px;
   height: 32px;
@@ -69,9 +95,13 @@
 }
 
 .page-description {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
-  margin: 0;
+  margin: 4px 0 0;
+}
+
+.header-right {
+  width: 60px; /* sama kaya lebar tombol kembali */
 }
 
 /* Page Content */
@@ -144,7 +174,8 @@
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--border-color);
-  background: var(--bg-darker);
+  justify-content: space-between;
+  flex-wrap: wrap;
   color: var(--text-light);
   cursor: pointer;
   font-weight: 600;
@@ -220,6 +251,20 @@
 
   .info-text {
     font-size: 0.85rem;
+  }
+  .header-inner {
+    padding: 0 16px;
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .back-button {
+    order: -1;
+  }
+
+  .header-title {
+    order: 1;
   }
 }
 
@@ -311,4 +356,135 @@
 }
 .toast.error {
   background: #ef4444;
+}
+
+.controls-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.switch-btn {
+  padding: 8px 16px;
+  border: 1.5px solid #374151;
+  background: transparent;
+  color: #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.switch-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.switch-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+.switch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading-text {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.error-text {
+  color: #ef4444;
+  font-size: 14px;
+}
+
+/* Tombol Add Item - Hijau + Icon */
+.add-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.add-item-btn:hover {
+  background: #059669; /* Hijau lebih gelap */
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(16, 185, 129, 0.35);
+}
+
+.add-item-btn:active {
+  transform: translateY(0);
+}
+
+.add-item-btn:disabled {
+  background: #6b7280;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.add-icon {
+  width: 20px;
+  height: 20px;
+}
+.collection-controls {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: nowrap;
+}
+
+.collection-controls > .controls-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.collection-controls > .add-item-btn {
+  margin-left: auto;
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(17, 24, 39, 0.95); /* dark bg + sedikit blur */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px 0;
+  transition: all 0.3s ease;
+}
+
+/* Kalau scroll agak ke bawah, kasih shadow biar keliatan "mengambang" */
+.sticky-header.scrolled {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+  padding: 8px 0; /* jadi lebih ramping */
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }

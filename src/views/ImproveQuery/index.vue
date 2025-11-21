@@ -1,6 +1,24 @@
 <script setup>
-import { ref, onMounted } from "vue"
+import { ref, onMounted, onUnmounted } from "vue"
+import { Icon } from "@iconify/vue"
 import DataTable from "../../components/DataTable.vue"
+
+const handleScroll = () => {
+  const header = document.querySelector(".sticky-header")
+  if (window.scrollY > 50) {
+    header?.classList.add("scrolled")
+  } else {
+    header?.classList.remove("scrolled")
+  }
+}
+
+onMounted(() => {
+  window.addEventListener("scroll", handleScroll)
+})
+
+onUnmounted(() => {
+  window.removeEventListener("scroll", handleScroll)
+})
 
 const placeholderData = ref({
   columns: [
@@ -122,14 +140,12 @@ const error = ref(null)
 const activeCollection = ref("bpr_supra_rag")
 const rawData = ref([])
 
-// modal / action state
 const showEditModal = ref(false)
 const showDeleteModal = ref(false)
 const selectedId = ref(null)
 const editForm = ref({})
 const lastActionMessage = ref("")
 const saveLoading = ref(false)
-// simple local toast notifications
 const toasts = ref([])
 function showToast(message, type = "success", timeout = 3500) {
   const id = Date.now() + Math.random()
@@ -200,6 +216,7 @@ onMounted(() => {
 })
 
 function openEditModal(id) {
+  console.log("openEditModal -> id:", id)
   selectedId.value = id
   const item = rawData.value.find(i => i.id === id)
   if (item && item.payload) {
@@ -233,8 +250,70 @@ function openEditModal(id) {
 }
 
 function openDeleteModal(id) {
+  console.log("openDeleteModal -> id:", id)
   selectedId.value = id
   showDeleteModal.value = true
+}
+
+// Add new cache item state
+const showAddModal = ref(false)
+const addForm = ref({ prompt: "", sql: "" })
+const addLoading = ref(false)
+const deleteLoading = ref(false)
+
+function openAddModal() {
+  addForm.value = { prompt: "", sql: "" }
+  showAddModal.value = true
+}
+
+async function createCacheEntry() {
+  if (!addForm.value.prompt || !addForm.value.sql) {
+    showToast("Please fill prompt and sql", "error")
+    return
+  }
+
+  addLoading.value = true
+  try {
+    const payload = { prompt: addForm.value.prompt, sql: addForm.value.sql }
+    const res = await fetch("http://localhost:8097/admin/cache/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) {
+      const txt = await res.text()
+      throw new Error(`HTTP ${res.status} ${txt}`)
+    }
+
+    const data = await res.json().catch(() => ({}))
+
+    const newId = data.id || data._id || `temp-${Date.now()}`
+
+    const newItem = {
+      id: newId,
+      payload: {
+        prompt_asli: addForm.value.prompt,
+        sql_query: addForm.value.sql,
+      },
+    }
+    rawData.value.unshift(newItem)
+
+    rows.value.unshift([newId, addForm.value.prompt, addForm.value.sql, ""])
+
+    showToast("Cache entry created", "success")
+    showAddModal.value = false
+    try {
+      await fetchCollection("bpr_supra_cache")
+    } catch (e) {
+      console.warn("Refetch after create failed", e)
+    }
+  } catch (err) {
+    console.error("Create cache error", err)
+    showToast("Create failed: " + String(err), "error")
+  } finally {
+    addLoading.value = false
+  }
 }
 
 function saveEdit() {
@@ -275,12 +354,8 @@ function saveEdit() {
             editForm.value.prompt_asli ?? rawData.value[idx].payload.prompt_asli
           rawData.value[idx].payload.sql_query =
             editForm.value.sql_query ?? rawData.value[idx].payload.sql_query
-
-          // also update rows array (id at index 0)
           const rowIdx = rows.value.findIndex(r => r[0] === selectedId.value)
           if (rowIdx !== -1) {
-            // columns for cache are ["id","prompt_asli","sql_query","action"]
-            // keep action placeholder as empty string so DataTable renders action buttons
             rows.value[rowIdx] = [
               selectedId.value,
               rawData.value[idx].payload.prompt_asli,
@@ -334,53 +409,81 @@ function updateEditFormFromJSON(e) {
 function confirmDelete() {
   const payload = { collection: activeCollection.value, id: selectedId.value }
   console.log("Prepared delete payload:", payload)
-  rawData.value = rawData.value.filter(i => i.id !== selectedId.value)
-  rows.value = rows.value.filter(r => r[0] !== selectedId.value)
-  lastActionMessage.value = `Deleted ${payload.collection} id=${payload.id}`
-  showDeleteModal.value = false
+
+  // If deleting from cache, call backend API
+  if (activeCollection.value === "bpr_supra_cache") {
+    deleteLoading.value = true
+    fetch("http://localhost:8097/admin/qdrant/delete", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(async res => {
+        if (!res.ok) {
+          const txt = await res.text()
+          throw new Error(`HTTP ${res.status} ${txt}`)
+        }
+        return res.json().catch(() => ({}))
+      })
+      .then(resp => {
+        rawData.value = rawData.value.filter(i => i.id !== selectedId.value)
+        rows.value = rows.value.filter(r => r[0] !== selectedId.value)
+        lastActionMessage.value = `Deleted ${payload.collection} id=${payload.id}`
+        showToast("Delete successful", "success")
+        showDeleteModal.value = false
+      })
+      .catch(err => {
+        console.error("Delete error", err)
+        showToast("Delete failed: " + String(err), "error")
+      })
+      .finally(() => {
+        deleteLoading.value = false
+      })
+  } else {
+    rawData.value = rawData.value.filter(i => i.id !== selectedId.value)
+    rows.value = rows.value.filter(r => r[0] !== selectedId.value)
+    lastActionMessage.value = `Deleted ${payload.collection} id=${payload.id}`
+    showDeleteModal.value = false
+  }
 }
 </script>
 
 <template>
   <div class="improve-query-page">
     <!-- Header -->
-    <header class="page-header">
-      <div class="header-content">
+    <header class="sticky-header">
+      <div class="header-inner">
+        <!-- Tombol Kembali - pojok kiri -->
         <router-link to="/" class="back-button">
-          <svg
-            class="icon"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-            />
-          </svg>
+          <Icon icon="solar:arrow-left-linear" class="icon" />
           Kembali ke Chat
         </router-link>
-        <h1 class="page-title">
-          <svg
-            class="title-icon"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
-            />
-          </svg>
-          Improve Query
-        </h1>
-        <p class="page-description">
-          Lihat riwayat perbaikan query dan saran optimasi dari AI
-        </p>
+
+        <!-- Judul + deskripsi - tengah -->
+        <div class="header-title">
+          <h1 class="page-title">
+            <svg
+              class="title-icon"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+              />
+            </svg>
+            Improve Query
+          </h1>
+          <p class="page-description">
+            Lihat riwayat perbaikan query dan saran optimasi dari AI
+          </p>
+        </div>
+
+        <!-- Kosongin kanan biar seimbang -->
+        <div class="header-right"></div>
       </div>
     </header>
 
@@ -391,39 +494,37 @@ function confirmDelete() {
         <div class="table-section">
           <h2 class="section-title">Riwayat Query Improvement</h2>
 
-          <div
-            class="collection-controls"
-            style="
-              margin-bottom: 12px;
-              display: flex;
-              gap: 8px;
-              align-items: center;
-            "
-          >
+          <div class="collection-controls">
+            <div class="controls-left">
+              <button
+                :disabled="loading || activeCollection === 'bpr_supra_rag'"
+                @click.prevent="fetchCollection('bpr_supra_rag')"
+                :class="{ active: activeCollection === 'bpr_supra_rag' }"
+                class="switch-btn"
+              >
+                Load RAG
+              </button>
+              <button
+                :disabled="loading || activeCollection === 'bpr_supra_cache'"
+                @click.prevent="fetchCollection('bpr_supra_cache')"
+                :class="{ active: activeCollection === 'bpr_supra_cache' }"
+                class="switch-btn"
+              >
+                Load CACHE
+              </button>
+              <span v-if="loading" class="loading-text">Loading...</span>
+              <span v-if="error" class="error-text">Error: {{ error }}</span>
+            </div>
+
             <button
-              :disabled="loading || activeCollection === 'bpr_supra_rag'"
-              @click.prevent="fetchCollection('bpr_supra_rag')"
-              :class="{ active: activeCollection === 'bpr_supra_rag' }"
-              :aria-pressed="activeCollection === 'bpr_supra_rag'"
+              v-if="activeCollection === 'bpr_supra_cache'"
+              @click.prevent="openAddModal"
+              :disabled="addLoading"
+              class="add-item-btn"
             >
-              Load RAG
+              <Icon icon="solar:add-circle-bold" class="add-icon" />
+              Add Item
             </button>
-            <button
-              :disabled="loading || activeCollection === 'bpr_supra_cache'"
-              @click.prevent="fetchCollection('bpr_supra_cache')"
-              :class="{ active: activeCollection === 'bpr_supra_cache' }"
-              :aria-pressed="activeCollection === 'bpr_supra_cache'"
-            >
-              Load CACHE
-            </button>
-            <span
-              v-if="loading"
-              style="margin-left: 8px; color: var(--text-muted)"
-              >Loading...</span
-            >
-            <span v-if="error" style="margin-left: 8px; color: var(--danger)"
-              >Error: {{ error }}</span
-            >
           </div>
 
           <DataTable
@@ -496,8 +597,41 @@ function confirmDelete() {
                   justify-content: flex-end;
                 "
               >
-                <button @click="showDeleteModal = false">Cancel</button>
-                <button @click="confirmDelete">Delete</button>
+                <button
+                  @click="showDeleteModal = false"
+                  :disabled="deleteLoading"
+                >
+                  Cancel
+                </button>
+                <button @click="confirmDelete" :disabled="deleteLoading">
+                  {{ deleteLoading ? "Deleting..." : "Delete" }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add Modal -->
+          <div v-if="showAddModal" class="modal-backdrop">
+            <div class="modal-card">
+              <h3>Add Cache Entry</h3>
+              <label>Prompt</label>
+              <textarea v-model="addForm.prompt" rows="3"></textarea>
+              <label>SQL</label>
+              <textarea v-model="addForm.sql" rows="6"></textarea>
+              <div
+                style="
+                  margin-top: 12px;
+                  display: flex;
+                  gap: 8px;
+                  justify-content: flex-end;
+                "
+              >
+                <button @click="showAddModal = false" :disabled="addLoading">
+                  Cancel
+                </button>
+                <button @click="createCacheEntry" :disabled="addLoading">
+                  {{ addLoading ? "Creating..." : "Create" }}
+                </button>
               </div>
             </div>
           </div>

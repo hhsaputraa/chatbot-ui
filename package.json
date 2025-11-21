@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@iconify/vue": "^5.0.0",
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
     "pdfmake": "^0.2.20",
