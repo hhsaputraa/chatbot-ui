@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue"
+import { ref, onMounted, onUnmounted, watch, nextTick } from "vue"
 import { Icon } from "@iconify/vue"
 import DataTable from "../../components/DataTable.vue"
 
@@ -146,6 +146,16 @@ const selectedId = ref(null)
 const editForm = ref({})
 const lastActionMessage = ref("")
 const saveLoading = ref(false)
+const sqlTextarea = ref(null)
+const editModalRef = ref(null)
+const copySql = async () => {
+  try {
+    await navigator.clipboard.writeText(editForm.value.sql_query || "")
+    showToast("SQL berhasil disalin!", "success")
+  } catch (err) {
+    showToast("Gagal menyalin SQL: " + String(err), "error")
+  }
+}
 const toasts = ref([])
 function showToast(message, type = "success", timeout = 3500) {
   const id = Date.now() + Math.random()
@@ -168,7 +178,6 @@ async function fetchCollection(collection) {
     rawData.value = data
 
     if (collection === "bpr_supra_rag") {
-      // Expect payload: { category, content, prompt_preview }
       columns.value = ["id", "category", "prompt_preview", "content", "action"]
       rows.value = data.map(item => [
         item.id,
@@ -178,7 +187,6 @@ async function fetchCollection(collection) {
         "",
       ])
     } else if (collection === "bpr_supra_cache") {
-      // Expect payload: { prompt_asli, sql_query }
       columns.value = ["id", "prompt_asli", "sql_query", "action"]
       rows.value = data.map(item => [
         item.id,
@@ -187,7 +195,6 @@ async function fetchCollection(collection) {
         "",
       ])
     } else {
-      // Generic fallback: try to flatten payload keys
       if (Array.isArray(data) && data.length > 0) {
         const sample = data[0]
         const payloadKeys = sample.payload ? Object.keys(sample.payload) : []
@@ -211,7 +218,6 @@ async function fetchCollection(collection) {
 }
 
 onMounted(() => {
-  // load RAG by default
   fetchCollection("bpr_supra_rag")
 })
 
@@ -232,15 +238,12 @@ function openEditModal(id) {
         sql_query: item.payload.sql_query ?? "",
       }
     } else {
-      // generic shallow copy
       editForm.value = { ...(item.payload || {}) }
     }
   } else {
-    // fallback: try to find in rows
     const row = rows.value.find(r => r[0] === id)
     editForm.value = {}
     if (row) {
-      // map remaining columns to form fields
       columns.value.forEach((col, idx) => {
         if (col !== "id" && col !== "action") editForm.value[col] = row[idx]
       })
@@ -267,125 +270,227 @@ function openAddModal() {
 }
 
 async function createCacheEntry() {
-  if (!addForm.value.prompt || !addForm.value.sql) {
-    showToast("Please fill prompt and sql", "error")
+  if (!addForm.value.prompt.trim() || !addForm.value.sql.trim()) {
+    showToast("Prompt dan SQL tidak boleh kosong", "error")
     return
   }
 
   addLoading.value = true
+
   try {
-    const payload = { prompt: addForm.value.prompt, sql: addForm.value.sql }
     const res = await fetch("http://localhost:8097/admin/cache/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        prompt: addForm.value.prompt.trim(),
+        sql: addForm.value.sql.trim(),
+      }),
     })
 
     if (!res.ok) {
-      const txt = await res.text()
-      throw new Error(`HTTP ${res.status} ${txt}`)
+      let backendMsg = ""
+      try {
+        const errData = await res.json()
+        backendMsg = errData.error || errData.message || ""
+      } catch (e) {
+        backendMsg = await res.text()
+      }
+
+      let userFriendlyMessage = ""
+
+      if (res.status === 400 && backendMsg.includes("SQL Ditolak")) {
+        userFriendlyMessage = `
+          Silakan perbaiki query Anda.
+        `
+      } else if (res.status === 400 && backendMsg.includes("kosong")) {
+        userFriendlyMessage = "Mohon lengkapi Prompt dan SQL sebelum menyimpan."
+      } else if (res.status === 500) {
+        userFriendlyMessage = `
+          Terjadi masalah saat memproses data.
+          Silakan coba lagi beberapa saat lagi.
+        `
+      } else {
+        userFriendlyMessage = backendMsg || `Terjadi kesalahan (${res.status})`
+      }
+      throw new Error(userFriendlyMessage)
     }
 
-    const data = await res.json().catch(() => ({}))
+    const data = await res.json()
 
     const newId = data.id || data._id || `temp-${Date.now()}`
-
     const newItem = {
       id: newId,
       payload: {
-        prompt_asli: addForm.value.prompt,
-        sql_query: addForm.value.sql,
+        prompt_asli: addForm.value.prompt.trim(),
+        sql_query: addForm.value.sql.trim(),
       },
     }
+
     rawData.value.unshift(newItem)
+    rows.value.unshift([
+      newId,
+      addForm.value.prompt.trim(),
+      addForm.value.sql.trim(),
+      "",
+    ])
 
-    rows.value.unshift([newId, addForm.value.prompt, addForm.value.sql, ""])
-
-    showToast("Cache entry created", "success")
+    showToast("Cache berhasil ditambahkan!", "success", 4000)
     showAddModal.value = false
-    try {
-      await fetchCollection("bpr_supra_cache")
-    } catch (e) {
-      console.warn("Refetch after create failed", e)
-    }
+    await fetchCollection("bpr_supra_cache").catch(() => {})
   } catch (err) {
-    console.error("Create cache error", err)
-    showToast("Create failed: " + String(err), "error")
+    console.error("Create cache error:", err)
+
+    let userMessage = ""
+    let title = "Gagal menambah cache"
+
+    if (
+      err.name === "TypeError" &&
+      (err.message.includes("Failed to fetch") ||
+        err.message.includes("network"))
+    ) {
+      if (!navigator.onLine) {
+        userMessage = `
+          Tidak ada koneksi internet.
+          Pastikan Perangkat Anda terhubung ke internet.
+        `
+        title = "Anda Offline"
+      } else {
+        userMessage = `
+          Tidak dapat menghubungi server
+        `
+        title = "Server Unreachable"
+      }
+    } else if (err.name === "TypeError" && err.message.includes("fetch")) {
+      userMessage = `
+      Tidak dapat terhubung ke server
+      Pastikan service sedang berjalan
+      Atau coba refresh halaman ini.
+    `
+    } else if (
+      err.message?.includes("Server error") ||
+      err.message?.includes("Bad Request")
+    ) {
+      userMessage = `
+      Gagal menyimpan ke server,
+      ${err.message}
+    `
+    } else {
+      userMessage = `Terjadi kesalahan: ${err.message || "Unknown error"}`
+    }
+    showToast(userMessage, "error", 10000)
   } finally {
     addLoading.value = false
   }
 }
 
-function saveEdit() {
-  // Prepare payload according to example
+async function saveEdit() {
   const payloadBase = {
     collection: activeCollection.value,
     id: selectedId.value,
   }
 
   if (activeCollection.value === "bpr_supra_cache") {
-    const payload = {
-      ...payloadBase,
-      prompt: editForm.value.prompt_asli ?? "",
-      sql: editForm.value.sql_query ?? "",
+    const promptVal = editForm.value.prompt_asli?.trim() ?? ""
+    const sqlVal = editForm.value.sql_query?.trim() ?? ""
+
+    if (!promptVal || !sqlVal) {
+      showToast("Prompt dan SQL tidak boleh kosong", "error")
+      return
     }
 
-    // send update to backend
     saveLoading.value = true
     error.value = null
-    fetch("http://localhost:8097/admin/qdrant/update", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(async res => {
-        if (!res.ok) {
-          const txt = await res.text()
-          throw new Error(`HTTP ${res.status} ${txt}`)
-        }
-        return res.json().catch(() => ({}))
+
+    try {
+      const payload = {
+        ...payloadBase,
+        prompt: promptVal,
+        sql: sqlVal,
+      }
+      const res = await fetch("http://localhost:8097/admin/qdrant/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       })
-      .then(resp => {
-        // Update local UI: update rawData and rows
-        const idx = rawData.value.findIndex(i => i.id === selectedId.value)
-        if (idx !== -1) {
-          rawData.value[idx].payload = rawData.value[idx].payload || {}
-          rawData.value[idx].payload.prompt_asli =
-            editForm.value.prompt_asli ?? rawData.value[idx].payload.prompt_asli
-          rawData.value[idx].payload.sql_query =
-            editForm.value.sql_query ?? rawData.value[idx].payload.sql_query
-          const rowIdx = rows.value.findIndex(r => r[0] === selectedId.value)
-          if (rowIdx !== -1) {
-            rows.value[rowIdx] = [
-              selectedId.value,
-              rawData.value[idx].payload.prompt_asli,
-              rawData.value[idx].payload.sql_query,
-              "",
-            ]
-          }
+
+      if (!res.ok) {
+        let backendMsg = ""
+        try {
+          const errData = await res.json()
+          backendMsg = errData.error || errData.message || ""
+        } catch (e) {
+          backendMsg = await res.text()
+        }
+        let userFriendlyMessage = ""
+        if (res.status === 400 && backendMsg.includes("SQL Ditolak")) {
+          userFriendlyMessage = `
+            Update dibatalkan.Silahkan ganti query anda
+          `
+        } else if (res.status === 400) {
+          userFriendlyMessage = `Gagal Update: ${backendMsg}`
+        } else if (res.status === 500) {
+          userFriendlyMessage = `
+            Terjadi masalah saat memproses data.
+          Silakan coba lagi beberapa saat lagi.
+          `
+        } else {
+          userFriendlyMessage = backendMsg || `HTTP Error ${res.status}`
         }
 
-        lastActionMessage.value = `Update successful for ${payload.collection} id=${payload.id}`
-        showEditModal.value = false
-        showToast("Update saved successfully", "success")
-      })
-      .catch(err => {
-        console.error("Update error", err)
-        error.value = String(err)
-        lastActionMessage.value = `Update failed: ${err}`
-        showToast("Update failed: " + String(err), "error")
-      })
-      .finally(() => {
-        saveLoading.value = false
-      })
+        throw new Error(userFriendlyMessage)
+      }
+      const idx = rawData.value.findIndex(i => i.id === selectedId.value)
+      if (idx !== -1) {
+        rawData.value[idx].payload = rawData.value[idx].payload || {}
+        rawData.value[idx].payload.prompt_asli = promptVal
+        rawData.value[idx].payload.sql_query = sqlVal
+        const rowIdx = rows.value.findIndex(r => r[0] === selectedId.value)
+        if (rowIdx !== -1) {
+          rows.value[rowIdx] = [
+            selectedId.value,
+            promptVal,
+            sqlVal,
+            rows.value[rowIdx][3] || "",
+          ]
+        }
+      }
+
+      showEditModal.value = false
+      showToast("✅ Update berhasil disimpan!", "success", 3000)
+    } catch (err) {
+      console.error("Update error", err)
+      error.value = String(err)
+
+      let finalMessage = ""
+
+      if (
+        err.name === "TypeError" &&
+        (err.message.includes("fetch") || err.message.includes("network"))
+      ) {
+        if (!navigator.onLine) {
+          finalMessage = `
+              Tidak ada koneksi internet.
+          Pastikan Perangkat Anda terhubung ke internet.
+            `
+        } else {
+          finalMessage = `
+             Tidak dapat menghubungi server
+            `
+        }
+      } else {
+        finalMessage = err.message
+      }
+
+      showToast(finalMessage, "error", 6000)
+    } finally {
+      saveLoading.value = false
+    }
 
     return
   }
 
-  // other collections: prepare payload but don't automatically POST
   const payload = { ...payloadBase }
   if (activeCollection.value === "bpr_supra_rag") {
-    // map prompt_preview -> prompt, content -> sql/content
     payload.prompt = editForm.value.prompt_preview ?? ""
     payload.content = editForm.value.content ?? ""
     payload.category = editForm.value.category ?? ""
@@ -394,8 +499,7 @@ function saveEdit() {
   }
 
   console.log("Prepared update payload:", payload)
-  lastActionMessage.value = `Prepared update for ${payload.collection} id=${payload.id}`
-  // close modal
+
   showEditModal.value = false
 }
 
@@ -409,8 +513,6 @@ function updateEditFormFromJSON(e) {
 function confirmDelete() {
   const payload = { collection: activeCollection.value, id: selectedId.value }
   console.log("Prepared delete payload:", payload)
-
-  // If deleting from cache, call backend API
   if (activeCollection.value === "bpr_supra_cache") {
     deleteLoading.value = true
     fetch("http://localhost:8097/admin/qdrant/delete", {
@@ -428,7 +530,6 @@ function confirmDelete() {
       .then(resp => {
         rawData.value = rawData.value.filter(i => i.id !== selectedId.value)
         rows.value = rows.value.filter(r => r[0] !== selectedId.value)
-        lastActionMessage.value = `Deleted ${payload.collection} id=${payload.id}`
         showToast("Delete successful", "success")
         showDeleteModal.value = false
       })
@@ -442,10 +543,25 @@ function confirmDelete() {
   } else {
     rawData.value = rawData.value.filter(i => i.id !== selectedId.value)
     rows.value = rows.value.filter(r => r[0] !== selectedId.value)
-    lastActionMessage.value = `Deleted ${payload.collection} id=${payload.id}`
     showDeleteModal.value = false
   }
 }
+watch(showAddModal, async val => {
+  if (val) {
+    addForm.value = { prompt: "", sql: "" }
+    await nextTick()
+    document.querySelector("#prompt")?.focus()
+  }
+})
+watch(showEditModal, async val => {
+  if (val) {
+    await nextTick()
+    sqlTextarea.value?.$el?.focus?.() || sqlTextarea.value?.focus?.()
+    const len = editForm.value.sql_query?.length || 0
+    sqlTextarea.value?.$el?.setSelectionRange?.(len, len)
+    sqlTextarea.value?.setSelectionRange?.(len, len)
+  }
+})
 </script>
 
 <template>
@@ -513,7 +629,6 @@ function confirmDelete() {
                 Load CACHE
               </button>
               <span v-if="loading" class="loading-text">Loading...</span>
-              <span v-if="error" class="error-text">Error: {{ error }}</span>
             </div>
 
             <button
@@ -538,48 +653,96 @@ function confirmDelete() {
           />
 
           <!-- Edit Modal -->
-          <div v-if="showEditModal" class="modal-backdrop">
-            <div class="modal-card">
-              <h3>Edit Item</h3>
-              <div v-if="activeCollection === 'bpr_supra_rag'">
-                <label>Category</label>
-                <input v-model="editForm.category" />
-                <label>Prompt Preview</label>
-                <textarea v-model="editForm.prompt_preview" rows="3"></textarea>
-                <label>Content</label>
-                <textarea v-model="editForm.content" rows="6"></textarea>
-              </div>
-              <div v-else-if="activeCollection === 'bpr_supra_cache'">
-                <label>Prompt Asli</label>
-                <textarea v-model="editForm.prompt_asli" rows="3"></textarea>
-                <label>SQL Query</label>
-                <textarea v-model="editForm.sql_query" rows="6"></textarea>
-              </div>
-              <div v-else>
-                <label>Payload (JSON)</label>
-                <textarea
-                  :value="JSON.stringify(editForm, null, 2)"
-                  @input="updateEditFormFromJSON"
-                  rows="6"
-                ></textarea>
-              </div>
+          <!-- EDIT CACHE ENTRY MODAL — PREMIUM & KONSISTEN -->
+          <teleport to="body">
+            <div
+              v-if="showEditModal"
+              class="modal-overlay"
+              @click="showEditModal = false"
+            >
               <div
-                style="
-                  margin-top: 12px;
-                  display: flex;
-                  gap: 8px;
-                  justify-content: flex-end;
-                "
+                class="modal-container"
+                @click.stop
+                @keydown.esc="showEditModal = false"
+                tabindex="0"
+                ref="editModalRef"
               >
-                <button @click="showEditModal = false" :disabled="saveLoading">
-                  Cancel
-                </button>
-                <button @click="saveEdit" :disabled="saveLoading">
-                  {{ saveLoading ? "Saving..." : "Save" }}
-                </button>
+                <div class="modal-header">
+                  <h2 class="modal-title">
+                    <Icon icon="solar:pen-bold" class="title-icon edit" />
+                    Edit Cache Entry
+                  </h2>
+                  <button
+                    @click="showEditModal = false"
+                    class="close-btn"
+                    aria-label="Tutup"
+                  >
+                    <Icon icon="solar:close-circle-bold" />
+                  </button>
+                </div>
+
+                <div class="modal-body">
+                  <!-- Prompt Asli -->
+                  <div class="form-group">
+                    <label>Prompt Asli</label>
+                    <textarea
+                      v-model="editForm.prompt_asli"
+                      rows="4"
+                      class="input-textarea"
+                      placeholder="Prompt dalam bahasa natural..."
+                    ></textarea>
+                  </div>
+
+                  <!-- SQL Query -->
+                  <div class="form-group">
+                    <label>SQL Query</label>
+                    <textarea
+                      v-model="editForm.sql_query"
+                      rows="10"
+                      class="input-textarea sql-input"
+                      placeholder="SELECT ... FROM ..."
+                      ref="sqlTextarea"
+                    ></textarea>
+                    <div class="action-bar">
+                      <button
+                        @click="copySql"
+                        class="copy-btn"
+                        title="Copy SQL"
+                      >
+                        <Icon icon="solar:copy-bold" />
+                        Copy SQL
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="modal-footer">
+                  <button
+                    @click="showEditModal = false"
+                    class="btn-secondary"
+                    :disabled="saveLoading"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    @click="saveEdit"
+                    class="btn-primary"
+                    :disabled="
+                      saveLoading ||
+                      !editForm.prompt_asli?.trim() ||
+                      !editForm.sql_query?.trim()
+                    "
+                  >
+                    <span v-if="!saveLoading"> Simpan Perubahan </span>
+                    <span v-else>
+                      <Icon icon="solar:refresh-bold" class="spin" />
+                      Menyimpan...
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          </teleport>
 
           <!-- Delete Modal -->
           <div v-if="showDeleteModal" class="modal-backdrop">
@@ -610,38 +773,89 @@ function confirmDelete() {
             </div>
           </div>
 
-          <!-- Add Modal -->
-          <div v-if="showAddModal" class="modal-backdrop">
-            <div class="modal-card">
-              <h3>Add Cache Entry</h3>
-              <label>Prompt</label>
-              <textarea v-model="addForm.prompt" rows="3"></textarea>
-              <label>SQL</label>
-              <textarea v-model="addForm.sql" rows="6"></textarea>
+          <teleport to="body">
+            <div
+              v-if="showAddModal"
+              class="modal-overlay"
+              @click="showAddModal = false"
+            >
               <div
-                style="
-                  margin-top: 12px;
-                  display: flex;
-                  gap: 8px;
-                  justify-content: flex-end;
-                "
+                class="modal-container"
+                @click.stop
+                @keydown.esc="showAddModal = false"
+                tabindex="0"
+                ref="modalRef"
               >
-                <button @click="showAddModal = false" :disabled="addLoading">
-                  Cancel
-                </button>
-                <button @click="createCacheEntry" :disabled="addLoading">
-                  {{ addLoading ? "Creating..." : "Create" }}
-                </button>
+                <div class="modal-header">
+                  <h2 class="modal-title">
+                    <Icon icon="solar:add-circle-bold" class="title-icon" />
+                    Tambah Cache Query Baru
+                  </h2>
+                  <button
+                    @click="showAddModal = false"
+                    class="close-btn"
+                    aria-label="Tutup"
+                  >
+                    <Icon icon="solar:close-circle-bold" />
+                  </button>
+                </div>
+
+                <div class="modal-body">
+                  <div class="form-group">
+                    <label for="prompt">Prompt Asli (Natural Language)</label>
+                    <textarea
+                      id="prompt"
+                      v-model="addForm.prompt"
+                      rows="4"
+                      placeholder="Contoh: tampilkan 10 nasabah dengan saldo terbesar"
+                      class="input-textarea"
+                      required
+                    ></textarea>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="sql">SQL Query (Hasil Terjemahan)</label>
+                    <textarea
+                      id="sql"
+                      v-model="addForm.sql"
+                      rows="8"
+                      placeholder="SELECT nama_lengkap, saldo FROM bpr_supra_nasabah ORDER BY saldo DESC LIMIT 10;"
+                      class="input-textarea sql-input"
+                      required
+                    ></textarea>
+                    <small class="hint">
+                      Pastikan query valid dan sesuai
+                    </small>
+                  </div>
+                </div>
+
+                <div class="modal-footer">
+                  <button
+                    @click="showAddModal = false"
+                    class="btn-secondary"
+                    :disabled="addLoading"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    @click="createCacheEntry"
+                    class="btn-primary"
+                    :disabled="
+                      !addForm.prompt.trim() ||
+                      !addForm.sql.trim() ||
+                      addLoading
+                    "
+                  >
+                    <span v-if="!addLoading"> Buat Cache Entry </span>
+                    <span v-else>
+                      <Icon icon="solar:refresh-bold" class="spin" />
+                      Membuat...
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-
-          <div
-            v-if="lastActionMessage"
-            style="margin-top: 8px; color: var(--text-muted)"
-          >
-            {{ lastActionMessage }}
-          </div>
+          </teleport>
           <!-- Toast container -->
           <div class="toast-container">
             <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type">
