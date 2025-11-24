@@ -351,3 +351,64 @@
     animation: none;
   }
 }
+
+/* Improve modal styles */
+.improve-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.improve-modal {
+  width: 360px;
+  max-width: calc(100% - 32px);
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  position: relative;
+  color: var(--text-light);
+}
+.improve-modal h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+}
+.improve-modal p {
+  margin: 0 0 16px 0;
+  color: var(--text-muted);
+}
+.improve-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.btn-primary {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--primary-blue);
+  color: var(--text-light);
+  border: none;
+  cursor: pointer;
+}
+.btn-secondary {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-light);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+}
+.improve-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+}

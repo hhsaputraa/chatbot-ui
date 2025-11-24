@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from "vue"
+import { useRouter } from "vue-router"
 import ChatMessage from "../../components/ChatMessage.vue"
 import { useTablePagination } from "../../composables/useTablePagination"
 
@@ -9,6 +10,24 @@ const isLoading = ref(false)
 const chatContainer = ref(null)
 
 const { initPagination } = useTablePagination()
+const router = useRouter()
+
+// modal state for Improve Query choices
+const showImproveModal = ref(false)
+
+function openImproveModal(e) {
+  e && e.preventDefault()
+  showImproveModal.value = true
+}
+
+function closeImproveModal() {
+  showImproveModal.value = false
+}
+
+function navigateTo(path) {
+  closeImproveModal()
+  router.push(path)
+}
 
 const WELCOME_TITLE = import.meta.env.VITE_CHAT_WELCOME_TITLE
 const WELCOME_SUBTITLE = import.meta.env.VITE_CHAT_WELCOME_SUBTITLE
@@ -53,13 +72,15 @@ function formatErrorMessage(errorData) {
     case "EMPTY_SQL":
       return "AI tidak dapat menghasilkan query yang valid. Silakan perbaiki pertanyaan Anda."
 
+    case "DANGEROUS_INTENT":
+      return "DITOLAK. Silakan ganti pertanyaan Anda."
+
     case "QUERY_EXECUTION_FAILED":
       return `Query tidak dapat dieksekusi. ${
         message || "Silakan perbaiki pertanyaan Anda."
       }`
 
     default:
-      // Fallback to backend message or generic error
       return (
         message || "Terjadi kesalahan yang tidak diketahui. Silakan coba lagi."
       )
@@ -104,7 +125,6 @@ async function handleSubmit() {
         errorDetail: data.error_detail,
       })
     } else if (data.status === "ambiguous") {
-      // Handle ambiguous queries with suggestions
       messages.value.push({
         role: "bot",
         type: "suggestion",
@@ -112,14 +132,12 @@ async function handleSubmit() {
         suggestions: data.suggestions,
       })
     } else if (data.status === "success" && data.data && data.data.rows) {
-      // Handle successful data response
       const messageIndex = messages.value.length
       messages.value.push({ role: "bot", type: "data", data: data.data })
       if (data.data.rows.length > 0) {
         initPagination(messageIndex, data.data.rows.length)
       }
     } else if (data.status === "success") {
-      // Handle successful text response
       messages.value.push({
         role: "bot",
         type: "text",
@@ -160,7 +178,6 @@ async function handleSubmit() {
   isLoading.value = false
 }
 
-// Auto-scroll to bottom when new messages arrive
 watch(
   () => messages.value.length,
   () => {
@@ -198,7 +215,7 @@ watch(
 
       <!-- Improve Query Button - Bottom of Sidebar -->
       <div class="sidebar-footer">
-        <router-link to="/improve_query" class="improve-query-btn">
+        <button class="improve-query-btn" @click="openImproveModal">
           <svg
             class="icon"
             fill="none"
@@ -212,9 +229,43 @@ watch(
               d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
             />
           </svg>
-          Improve Query
-        </router-link>
+          Improve AI
+        </button>
       </div>
+
+      <!-- Improve Choice Modal -->
+      <teleport to="body">
+        <div
+          v-if="showImproveModal"
+          class="improve-modal-overlay"
+          @click="closeImproveModal"
+        >
+          <div class="improve-modal" @click.stop>
+            <h3>Pilih</h3>
+            <div class="improve-modal-actions">
+              <button
+                class="btn-secondary"
+                @click="navigateTo('/improve_query')"
+              >
+                Improve Query
+              </button>
+              <button
+                class="btn-primary"
+                @click="navigateTo('/improve_knowledge')"
+              >
+                Improve Knowledge
+              </button>
+            </div>
+            <button
+              class="improve-modal-close"
+              aria-label="Close"
+              @click="closeImproveModal"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      </teleport>
     </aside>
 
     <!-- Main Chat Area -->

@@ -3,6 +3,7 @@ import TestingView from '../views/testing/TestingView.vue'
 import ChatView from '../views/Chat/index.vue'
 import PdfTestingView from '../views/PdfTesting/index.vue'
 import ImproveQueryView from '../views/ImproveQuery/index.vue'
+import ImproveKnowledgeView from '../views/ImproveKnowledge/index.vue'
 
 const routes = [
     {
@@ -24,6 +25,11 @@ const routes = [
         path: '/improve_query',
         name: 'ImproveQuery',
         component: ImproveQueryView
+    },
+    {
+        path: '/improve_knowledge',
+        name: 'ImproveKnowledge',
+        component: ImproveKnowledgeView
     }
 ]
 
