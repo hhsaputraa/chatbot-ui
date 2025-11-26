@@ -67,17 +67,33 @@
           :columns="message.data.columns"
         />
       </template>
+      <template v-else-if="message.type === 'suggestion'">
+        <div class="suggestion-container">
+          <p class="suggestion-text">{{ message.content }}</p>
+          <div class="suggestion-chips">
+            <button
+              v-for="(item, index) in message.suggestions"
+              :key="index"
+              class="suggestion-chip"
+              @click="$emit('suggestion-click', item)"
+            >
+              {{ item }}
+            </button>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- Bot Avatar -->
-    <div v-if="message.role === 'bot'" class="avatar">
+    <!-- <div v-if="message.role === 'bot'" class="avatar">
       <div class="avatar-bot">🤖</div>
-    </div>
+    </div> -->
   </div>
 </template>
 
 <script setup>
 import DataTable from "./DataTable.vue"
+const emit = defineEmits(["suggestion-click"])
 
 defineProps({
   message: {
@@ -192,6 +208,45 @@ defineProps({
 .no-data p {
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+.suggestion-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.suggestion-text {
+  margin: 0;
+  font-weight: 500;
+  color: #e2e8f0; /* Text terang */
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.suggestion-chip {
+  background-color: rgba(66, 153, 225, 0.15);
+  border: 1px solid rgba(66, 153, 225, 0.3);
+  color: #63b3ed;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.suggestion-chip:hover {
+  background-color: rgba(66, 153, 225, 0.25);
+  transform: translateY(-1px);
+}
+
+.suggestion-chip:active {
+  transform: translateY(0);
 }
 
 /* Animation */
