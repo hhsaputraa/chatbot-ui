@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from "vue"
+import { useRouter } from "vue-router"
 import ChatMessage from "../../components/ChatMessage.vue"
 import { useTablePagination } from "../../composables/useTablePagination"
 
@@ -8,9 +9,29 @@ const userInput = ref("")
 const isLoading = ref(false)
 const chatContainer = ref(null)
 
-// Use pagination composable
 const { initPagination } = useTablePagination()
+const router = useRouter()
 
+// modal state for Improve Query choices
+const showImproveModal = ref(false)
+
+function openImproveModal(e) {
+  e && e.preventDefault()
+  showImproveModal.value = true
+}
+
+function closeImproveModal() {
+  showImproveModal.value = false
+}
+
+function navigateTo(path) {
+  closeImproveModal()
+  router.push(path)
+}
+
+const WELCOME_TITLE = import.meta.env.VITE_CHAT_WELCOME_TITLE
+const WELCOME_SUBTITLE = import.meta.env.VITE_CHAT_WELCOME_SUBTITLE
+const START_MESSAGE = import.meta.env.VITE_CHAT_START_MESSAGE
 onMounted(() => {
   startNewChat()
 })
@@ -18,18 +39,52 @@ onMounted(() => {
 function startNewChat() {
   messages.value = []
   nextTick(() => {
-    messages.value.push({
-      role: "bot",
-      type: "text",
-      content:
-        "Halo! Saya adalah AI asisten bank. Apa yang ingin Anda ketahui?",
-    })
+    messages.value.push({ role: "bot", type: "text", content: START_MESSAGE })
   })
 }
 
 function handleSuggestionClick(text) {
   userInput.value = text
   handleSubmit()
+}
+
+/**
+ * Format error message based on backend error codes
+ * @param {Object} errorData - Error response from backend
+ * @returns {string} - Formatted error message for user
+ */
+function formatErrorMessage(errorData) {
+  const { error_code, message, error_detail } = errorData
+
+  switch (error_code) {
+    case "METHOD_NOT_ALLOWED":
+      return "Metode HTTP tidak diizinkan. Pastikan menggunakan POST request."
+
+    case "INVALID_JSON":
+      return "Format permintaan tidak valid. Silakan coba lagi."
+
+    case "EMPTY_PROMPT":
+      return "Pertanyaan tidak boleh kosong. Silakan masukkan pertanyaan Anda."
+
+    case "AI_GENERATION_FAILED":
+      return "Sistem AI sedang mengalami gangguan. Silakan coba lagi dalam beberapa saat."
+
+    case "EMPTY_SQL":
+      return "AI tidak dapat menghasilkan query yang valid. Silakan perbaiki pertanyaan Anda."
+
+    case "DANGEROUS_INTENT":
+      return "DITOLAK. Silakan ganti pertanyaan Anda."
+
+    case "QUERY_EXECUTION_FAILED":
+      return `Query tidak dapat dieksekusi. ${
+        message || "Silakan perbaiki pertanyaan Anda."
+      }`
+
+    default:
+      return (
+        message || "Terjadi kesalahan yang tidak diketahui. Silakan coba lagi."
+      )
+  }
 }
 
 async function handleSubmit() {
@@ -48,46 +103,87 @@ async function handleSubmit() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestPayload),
     })
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.error || "Terjadi kesalahan dari API")
+
+    let data
+    try {
+      data = await response.json()
+    } catch (parseError) {
+      data = {
+        status: "error",
+        message: "Respons dari server tidak valid",
+        error_code: "INVALID_RESPONSE",
+      }
     }
-    const messageIndex = messages.value.length
-    if (data.status === "ambiguous") {
+
+    if (data.status === "error") {
+      const errorMessage = formatErrorMessage(data)
       messages.value.push({
         role: "bot",
-        type: "suggestion", // Tipe pesan baru
+        type: "error",
+        content: errorMessage,
+        errorCode: data.error_code,
+        errorDetail: data.error_detail,
+      })
+    } else if (data.status === "ambiguous") {
+      messages.value.push({
+        role: "bot",
+        type: "suggestion",
         content: data.message,
         suggestions: data.suggestions,
       })
-    }
-    // Handle Data Table (seperti biasa)
-    else if (data.rows) {
-      messages.value.push({ role: "bot", type: "data", data: data })
-      if (data.rows.length > 0) {
-        initPagination(messageIndex, data.rows.length)
+    } else if (data.status === "success" && data.data && data.data.rows) {
+      const messageIndex = messages.value.length
+      messages.value.push({ role: "bot", type: "data", data: data.data })
+      if (data.data.rows.length > 0) {
+        initPagination(messageIndex, data.data.rows.length)
       }
-    }
-    // Fallback untuk pesan teks biasa (jika ada)
-    else {
+    } else if (data.status === "success") {
       messages.value.push({
         role: "bot",
         type: "text",
-        content: "Perintah berhasil dieksekusi.",
+        content: data.message || "Perintah berhasil dieksekusi.",
+      })
+    } else {
+      // Unknown status
+      messages.value.push({
+        role: "bot",
+        type: "error",
+        content: "Respons dari server tidak dikenali.",
       })
     }
   } catch (error) {
-    let errorMsg = error.message
-    if (error.message.includes("Failed to fetch")) {
-      errorMsg =
-        "Gagal terhubung ke backend. Pastikan backend Go kamu sudah jalan!"
+    // Handle network errors and other fetch failures
+    let errorMsg = "Terjadi kesalahan yang tidak diketahui."
+
+    // 1) If browser reports offline, show explicit offline message
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      errorMsg = "Perangkat Anda sedang offline. Periksa koneksi internet Anda."
+    } else if (
+      error &&
+      typeof error === "object" &&
+      error.message &&
+      (error.message.includes("Failed to fetch") ||
+        error.message.includes("NetworkError"))
+    ) {
+      // 2) Network error while online — likely server unreachable
+      errorMsg = "Tidak dapat terhubung dengan server"
+    } else if (error && error.message && error.message.includes("JSON")) {
+      errorMsg = "Respons dari server tidak valid. Silakan coba lagi."
+    } else if (error && error.name === "TypeError") {
+      errorMsg = "Terjadi kesalahan jaringan. Periksa koneksi internet Anda."
     }
-    messages.value.push({ role: "bot", type: "error", content: errorMsg })
+
+    messages.value.push({
+      role: "bot",
+      type: "error",
+      content: errorMsg,
+      technicalDetail: error && error.message ? error.message : String(error),
+    })
   }
+
   isLoading.value = false
 }
 
-// Auto-scroll to bottom when new messages arrive
 watch(
   () => messages.value.length,
   () => {
@@ -122,6 +218,60 @@ watch(
           New Chat
         </button>
       </div>
+
+      <!-- Improve Query Button - Bottom of Sidebar -->
+      <div class="sidebar-footer">
+        <button class="improve-query-btn" @click="openImproveModal">
+          <svg
+            class="icon"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+            />
+          </svg>
+          Improve AI
+        </button>
+      </div>
+
+      <!-- Improve Choice Modal -->
+      <teleport to="body">
+        <div
+          v-if="showImproveModal"
+          class="improve-modal-overlay"
+          @click="closeImproveModal"
+        >
+          <div class="improve-modal" @click.stop>
+            <h3>Pilih</h3>
+            <div class="improve-modal-actions">
+              <button
+                class="btn-secondary"
+                @click="navigateTo('/improve_query')"
+              >
+                Improve Query
+              </button>
+              <button
+                class="btn-primary"
+                @click="navigateTo('/improve_knowledge')"
+              >
+                Improve Knowledge
+              </button>
+            </div>
+            <button
+              class="improve-modal-close"
+              aria-label="Close"
+              @click="closeImproveModal"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      </teleport>
     </aside>
 
     <!-- Main Chat Area -->
@@ -134,10 +284,8 @@ watch(
       >
         <!-- Welcome Card -->
         <div v-if="messages.length === 1" class="welcome-card">
-          <h2>Halo, saya asisten bank Anda 🤖</h2>
-          <p>
-            Tanyakan apa saja tentang rekening, transaksi, saldo, atau nasabah.
-          </p>
+          <h2>{{ WELCOME_TITLE }}</h2>
+          <p>{{ WELCOME_SUBTITLE }}</p>
           <div class="suggestions">
             <span
               @click="
