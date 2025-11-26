@@ -4,6 +4,7 @@
       <span>Export Data To:</span>
       <button @click="exportToCSV" class="export-btn csv">CSV</button>
       <button @click="exportToPDF" class="export-btn pdf">PDF</button>
+      <button @click="exportToPDFv2" class="export-btn pdf v2">PDF v2</button>
     </div>
     <!-- Search Bar -->
     <SearchBar
@@ -321,7 +322,7 @@ function exportToCSV() {
 
   // Buat Blob dan picu download
   const blob = new Blob([csvContent], {
-    type: "text/csv;charset=utf-IS0-8859-1;",
+    type: "text/csv;charset=utf-8;",
   })
   const link = document.createElement("a")
   const url = URL.createObjectURL(blob)
@@ -336,32 +337,118 @@ function exportToCSV() {
 /**
  * Memicu unduhan file PDF
  */
-function exportToPDF() {
-  const { headers, body } = getExportData()
+async function exportToPDF() {
+  try {
+    const { headers, body } = getExportData()
 
-  const doc = new jsPDF({
-    orientation: "landscape", // Gunakan landscape jika kolomnya banyak
-  })
+    const doc = new jsPDF({
+      orientation: "landscape",
+    })
 
-  doc.autoTable({
-    head: [headers], // Head harus berupa array di dalam array
-    body: body,
-    startY: 20, // Posisi awal tabel
-    // Opsi styling
-    theme: "grid", // 'striped', 'grid', 'plain'
-    styles: {
-      fontSize: 8,
-      cellPadding: 2,
-    },
-    headStyles: {
-      fillColor: [41, 128, 185], // Warna biru
-      textColor: 255,
-      fontStyle: "bold",
-    },
-  })
+    const tableOptions = {
+      head: [headers],
+      body: body,
+      startY: 20,
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+    }
 
-  doc.text("Laporan Data", 14, 15) // Judul
-  doc.save("export_data.pdf") // Nama file
+    // Try to use autoTable attached to the doc first, otherwise dynamic import the plugin
+    if (typeof doc.autoTable === "function") {
+      doc.autoTable(tableOptions)
+    } else {
+      // dynamic import as fallback (works with ESM builds)
+      const at = await import("jspdf-autotable")
+      // plugin may export default function or attach autoTable to doc
+      if (at && typeof at.default === "function") {
+        // some versions accept (doc, options)
+        try {
+          at.default(doc, tableOptions)
+        } catch (e) {
+          // fallback to calling resulting autoTable on doc if attached
+          if (typeof doc.autoTable === "function") doc.autoTable(tableOptions)
+          else throw e
+        }
+      } else if (typeof doc.autoTable === "function") {
+        doc.autoTable(tableOptions)
+      } else {
+        throw new Error("jspdf-autotable plugin not available")
+      }
+    }
+
+    doc.text("Laporan Data", 14, 15)
+    doc.save("export_data.pdf")
+  } catch (err) {
+    console.error("exportToPDF error:", err)
+    try {
+      alert(
+        "Gagal mengekspor PDF: " +
+          (err && err.message ? err.message : String(err))
+      )
+    } catch (e) {}
+  }
+}
+
+// Export using pdfmake (PDF v2)
+async function exportToPDFv2() {
+  try {
+    const { headers, body } = getExportData()
+
+    // dynamic import pdfmake to avoid bundling issues
+    const pdfMakeModule = await import("pdfmake/build/pdfmake")
+    const pdfFonts = await import("pdfmake/build/vfs_fonts")
+
+    const pdfMake =
+      pdfMakeModule && pdfMakeModule.default
+        ? pdfMakeModule.default
+        : pdfMakeModule
+
+    if (pdfFonts && (pdfFonts.pdfMake || pdfFonts.vfs)) {
+      // set vfs depending on export shape
+      if (pdfFonts.pdfMake && pdfFonts.pdfMake.vfs)
+        pdfMake.vfs = pdfFonts.pdfMake.vfs
+      else if (pdfFonts.vfs) pdfMake.vfs = pdfFonts.vfs
+    }
+
+    // build table body for pdfmake: include header row
+    const tableBody = [headers, ...body]
+
+    const dd = {
+      content: [
+        { text: "Laporan Data", style: "header" },
+        { text: "\n" },
+        {
+          style: "tableExample",
+          table: {
+            headerRows: 1,
+            body: tableBody,
+          },
+          layout: "lightHorizontalLines",
+        },
+      ],
+      styles: {
+        header: { fontSize: 16, bold: true, margin: [0, 0, 0, 8] },
+        tableExample: { margin: [0, 5, 0, 15] },
+        tableHeader: { bold: true, fontSize: 11, color: "black" },
+      },
+      defaultStyle: { fontSize: 9 },
+    }
+
+    pdfMake.createPdf(dd).download("export_data_v2.pdf")
+  } catch (err) {
+    console.error("exportToPDFv2 error:", err)
+    try {
+      alert(
+        "Gagal mengekspor PDF v2: " +
+          (err && err.message ? err.message : String(err))
+      )
+    } catch (e) {}
+  }
 }
 </script>
 

@@ -20,36 +20,33 @@ export function useFormatting() {
   function getColumnType(colName) {
     const name = colName.toLowerCase()
 
-    // Currency columns (IDR) - expanded detection
-    if (
-      name.includes("saldo") ||
-      name.includes("debit") ||
-      name.includes("kredit") ||
-      name.includes("total") ||
-      name.includes("masuk") ||
-      name.includes("keluar") ||
-      name.includes("jumlah") ||
-      name.includes("nominal") ||
-      name.includes("amount") ||
-      name.includes("harga") ||
-      name.includes("biaya") ||
-      name.includes("bayar")
-    ) {
-      return "currency"
+    // Currency columns (IDR) - only for specific money-related keywords
+    const currencyKeywords = [
+      'saldo', 'debit', 'kredit', 'nominal', 'amount', 'harga', 'biaya', 'bayar','keuntungan_bank', 'keuntungan_bulan_lalu'
+      // 'total' only if not followed by 'nasabah', 'penabung', 'transaksi', etc.
+    ]
+    for (const kw of currencyKeywords) {
+      if (name.includes(kw)) return 'currency'
     }
+    // 'total' as currency only if not a count
+    if (name === 'total' || name === 'total_saldo' || name === 'total_nominal') return 'currency'
 
     // Date/time columns
-    if (name.includes("tanggal") || name.includes("waktu") || name.includes("date") || name.includes("time")) {
-      return "datetime"
+    if (name.includes('tanggal') || name.includes('waktu') || name.includes('date') || name.includes('time')) {
+      return 'datetime'
     }
 
-    // Special number column
-    if (name === "jumlah_nasabah") {
-      return "number"
+    // Number/count columns: jumlah penabung, jumlah_nasabah, jumlah_transaksi, count, dsb
+    const numberKeywords = [
+      'jumlah_nasabah', 'jumlah penabung', 'jumlah_transaksi', 'jumlah transaksi', 'jumlah_nasabah', 'count', 'penabung', 'nasabah', 'transaksi', 'jumlah', 'total_nasabah', 'total_penabung', 'total_transaksi','keuntungan_bulan_lalu'
+    ]
+    for (const kw of numberKeywords) {
+      // only match if the whole name or ends with the keyword
+      if (name === kw || name.endsWith(kw)) return 'number'
     }
 
     // Default to text
-    return "text"
+    return 'text'
   }
 
   /**

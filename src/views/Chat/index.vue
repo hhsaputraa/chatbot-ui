@@ -155,15 +155,21 @@ async function handleSubmit() {
     // Handle network errors and other fetch failures
     let errorMsg = "Terjadi kesalahan yang tidak diketahui."
 
-    if (
-      error.message.includes("Failed to fetch") ||
-      error.message.includes("NetworkError")
+    // 1) If browser reports offline, show explicit offline message
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      errorMsg = "Perangkat Anda sedang offline. Periksa koneksi internet Anda."
+    } else if (
+      error &&
+      typeof error === "object" &&
+      error.message &&
+      (error.message.includes("Failed to fetch") ||
+        error.message.includes("NetworkError"))
     ) {
-      errorMsg =
-        "Gagal terhubung ke backend. Pastikan server Go Anda sudah berjalan di http://localhost:8097"
-    } else if (error.message.includes("JSON")) {
+      // 2) Network error while online — likely server unreachable
+      errorMsg = "Tidak dapat terhubung dengan server"
+    } else if (error && error.message && error.message.includes("JSON")) {
       errorMsg = "Respons dari server tidak valid. Silakan coba lagi."
-    } else if (error.name === "TypeError") {
+    } else if (error && error.name === "TypeError") {
       errorMsg = "Terjadi kesalahan jaringan. Periksa koneksi internet Anda."
     }
 
@@ -171,7 +177,7 @@ async function handleSubmit() {
       role: "bot",
       type: "error",
       content: errorMsg,
-      technicalDetail: error.message,
+      technicalDetail: error && error.message ? error.message : String(error),
     })
   }
 
