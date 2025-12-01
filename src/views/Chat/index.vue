@@ -29,9 +29,13 @@ function navigateTo(path) {
   router.push(path)
 }
 
+// Environment variables
 const WELCOME_TITLE = import.meta.env.VITE_CHAT_WELCOME_TITLE
 const WELCOME_SUBTITLE = import.meta.env.VITE_CHAT_WELCOME_SUBTITLE
 const START_MESSAGE = import.meta.env.VITE_CHAT_START_MESSAGE
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL
+
 onMounted(() => {
   startNewChat()
 })
@@ -98,7 +102,7 @@ async function handleSubmit() {
   const requestPayload = { prompt: currentMessage }
 
   try {
-    const response = await fetch("http://localhost:8097/api/query", {
+    const response = await fetch(`${API_BASE_URL}/api/query`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestPayload),

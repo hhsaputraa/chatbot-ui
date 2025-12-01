@@ -3,6 +3,9 @@ import { ref, onMounted, onUnmounted, watch, nextTick } from "vue"
 import { Icon } from "@iconify/vue"
 import DataTable from "../../components/DataTable.vue"
 
+// Environment variables
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
 const handleScroll = () => {
   const header = document.querySelector(".sticky-header")
   if (window.scrollY > 50) {
@@ -170,7 +173,7 @@ async function fetchCollection(collection) {
   error.value = null
   activeCollection.value = collection
   try {
-    const url = `http://localhost:8097/admin/qdrant/list?collection=${collection}`
+    const url = `${API_BASE_URL}/admin/qdrant/list?collection=${collection}`
     const res = await fetch(url)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
@@ -278,7 +281,7 @@ async function createCacheEntry() {
   addLoading.value = true
 
   try {
-    const res = await fetch("http://localhost:8097/admin/cache/create", {
+    const res = await fetch(`${API_BASE_URL}/admin/cache/create`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -407,7 +410,7 @@ async function saveEdit() {
         prompt: promptVal,
         sql: sqlVal,
       }
-      const res = await fetch("http://localhost:8097/admin/qdrant/update", {
+      const res = await fetch(`${API_BASE_URL}/admin/qdrant/update`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -515,7 +518,7 @@ function confirmDelete() {
   console.log("Prepared delete payload:", payload)
   if (activeCollection.value === "bpr_supra_cache") {
     deleteLoading.value = true
-    fetch("http://localhost:8097/admin/qdrant/delete", {
+    fetch(`${API_BASE_URL}/admin/qdrant/delete`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
