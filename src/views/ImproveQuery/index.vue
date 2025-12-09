@@ -2,9 +2,11 @@
 import { ref, onMounted, onUnmounted, watch, nextTick } from "vue"
 import { Icon } from "@iconify/vue"
 import DataTable from "../../components/DataTable.vue"
+import { useAuth } from "../../composables/useAuth"
 
 // Environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+const { getAuthHeaders, logout } = useAuth()
 
 const handleScroll = () => {
   const header = document.querySelector(".sticky-header")
@@ -174,7 +176,9 @@ async function fetchCollection(collection) {
   activeCollection.value = collection
   try {
     const url = `${API_BASE_URL}/admin/qdrant/list?collection=${collection}`
-    const res = await fetch(url)
+    const res = await fetch(url, {
+      headers: getAuthHeaders(),
+    })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
 
@@ -283,7 +287,7 @@ async function createCacheEntry() {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/cache/create`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         prompt: addForm.value.prompt.trim(),
         sql: addForm.value.sql.trim(),
@@ -412,7 +416,7 @@ async function saveEdit() {
       }
       const res = await fetch(`${API_BASE_URL}/admin/qdrant/update`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       })
 
@@ -520,7 +524,7 @@ function confirmDelete() {
     deleteLoading.value = true
     fetch(`${API_BASE_URL}/admin/qdrant/delete`, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     })
       .then(async res => {

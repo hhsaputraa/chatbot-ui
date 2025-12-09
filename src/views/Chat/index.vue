@@ -3,6 +3,7 @@ import { ref, onMounted, watch, nextTick } from "vue"
 import { useRouter } from "vue-router"
 import ChatMessage from "../../components/ChatMessage.vue"
 import { useTablePagination } from "../../composables/useTablePagination"
+import { useAuth } from "../../composables/useAuth"
 
 const messages = ref([])
 const userInput = ref("")
@@ -11,6 +12,7 @@ const chatContainer = ref(null)
 
 const { initPagination } = useTablePagination()
 const router = useRouter()
+const { getAuthHeaders, logout, currentUser } = useAuth()
 
 // modal state for Improve Query choices
 const showImproveModal = ref(false)
@@ -33,8 +35,7 @@ function navigateTo(path) {
 const WELCOME_TITLE = import.meta.env.VITE_CHAT_WELCOME_TITLE
 const WELCOME_SUBTITLE = import.meta.env.VITE_CHAT_WELCOME_SUBTITLE
 const START_MESSAGE = import.meta.env.VITE_CHAT_START_MESSAGE
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 onMounted(() => {
   startNewChat()
@@ -104,9 +105,20 @@ async function handleSubmit() {
   try {
     const response = await fetch(`${API_BASE_URL}/api/query`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify(requestPayload),
     })
+
+    // Check for authentication errors
+    if (response.status === 401) {
+      messages.value.push({
+        role: "bot",
+        type: "error",
+        content: "Sesi Anda telah berakhir. Silakan login kembali.",
+      })
+      logout()
+      return
+    }
 
     let data
     try {
@@ -225,6 +237,26 @@ watch(
 
       <!-- Improve Query Button - Bottom of Sidebar -->
       <div class="sidebar-footer">
+        <!-- User Info -->
+        <div v-if="currentUser" class="user-info">
+          <svg
+            class="icon"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+          <span class="username">{{
+            currentUser.username || currentUser.fullname
+          }}</span>
+        </div>
+
         <button class="improve-query-btn" @click="openImproveModal">
           <svg
             class="icon"
@@ -240,6 +272,24 @@ watch(
             />
           </svg>
           Improve AI
+        </button>
+
+        <!-- Logout Button -->
+        <button class="logout-btn" @click="logout">
+          <svg
+            class="icon"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
+            />
+          </svg>
+          Logout
         </button>
       </div>
 
