@@ -22,7 +22,7 @@ export function useFormatting() {
 
     // Currency columns (IDR) - only for specific money-related keywords
     const currencyKeywords = [
-      'saldo', 'debit', 'kredit', 'nominal', 'amount', 'harga', 'biaya', 'bayar','keuntungan_bank', 'keuntungan_bulan_lalu'
+      'saldo', 'debit', 'kredit', 'nominal', 'amount', 'harga', 'biaya', 'bayar','keuntungan_bank', 'keuntungan_bulan_lalu', 'saldo_tabungan'
       // 'total' only if not followed by 'nasabah', 'penabung', 'transaksi', etc.
     ]
     for (const kw of currencyKeywords) {

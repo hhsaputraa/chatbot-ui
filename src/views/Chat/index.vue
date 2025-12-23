@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, nextTick } from "vue"
+import { ref, onMounted, onUnmounted, watch, nextTick } from "vue"
 import { useRouter } from "vue-router"
 import ChatMessage from "../../components/ChatMessage.vue"
 import { useTablePagination } from "../../composables/useTablePagination"
@@ -8,6 +8,11 @@ const messages = ref([])
 const userInput = ref("")
 const isLoading = ref(false)
 const chatContainer = ref(null)
+
+// Text enhancer state
+const isEnhancing = ref(false)
+const enhanceCooldown = ref(0)
+let cooldownInterval = null
 
 const { initPagination } = useTablePagination()
 const router = useRouter()
@@ -33,11 +38,16 @@ function navigateTo(path) {
 const WELCOME_TITLE = import.meta.env.VITE_CHAT_WELCOME_TITLE
 const WELCOME_SUBTITLE = import.meta.env.VITE_CHAT_WELCOME_SUBTITLE
 const START_MESSAGE = import.meta.env.VITE_CHAT_START_MESSAGE
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 onMounted(() => {
   startNewChat()
+})
+
+onUnmounted(() => {
+  if (cooldownInterval) {
+    clearInterval(cooldownInterval)
+  }
 })
 
 function startNewChat() {
@@ -88,6 +98,46 @@ function formatErrorMessage(errorData) {
       return (
         message || "Terjadi kesalahan yang tidak diketahui. Silakan coba lagi."
       )
+  }
+}
+
+async function handleEnhance() {
+  if (!userInput.value.trim() || isEnhancing.value || enhanceCooldown.value > 0)
+    return
+
+  isEnhancing.value = true
+  const originalText = userInput.value
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/enhance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ draft_prompt: originalText }),
+    })
+
+    const data = await response.json()
+
+    if (data.enhanced_prompt) {
+      userInput.value = data.enhanced_prompt
+    } else {
+      // If enhancement fails, keep original text
+      console.error("Enhancement failed:", data)
+    }
+  } catch (error) {
+    console.error("Error enhancing text:", error)
+    // Keep original text on error
+  } finally {
+    isEnhancing.value = false
+
+    // Start cooldown
+    enhanceCooldown.value = 15
+    cooldownInterval = setInterval(() => {
+      enhanceCooldown.value--
+      if (enhanceCooldown.value <= 0) {
+        clearInterval(cooldownInterval)
+        cooldownInterval = null
+      }
+    }, 1000)
   }
 }
 
@@ -169,7 +219,6 @@ async function handleSubmit() {
       (error.message.includes("Failed to fetch") ||
         error.message.includes("NetworkError"))
     ) {
-      // 2) Network error while online — likely server unreachable
       errorMsg = "Tidak dapat terhubung dengan server"
     } else if (error && error.message && error.message.includes("JSON")) {
       errorMsg = "Respons dari server tidak valid. Silakan coba lagi."
@@ -334,10 +383,31 @@ watch(
           type="text"
           placeholder="silahkan masukan kebutuhan.."
           v-model="userInput"
-          :disabled="isLoading"
+          :disabled="isLoading || isEnhancing"
           autocomplete="off"
         />
-        <button type="submit" :disabled="isLoading" class="send-btn">
+        <button
+          type="button"
+          @click="handleEnhance"
+          :disabled="isEnhancing || enhanceCooldown > 0 || !userInput.trim()"
+          class="enhance-btn"
+          :title="
+            enhanceCooldown > 0
+              ? `Cooldown ${enhanceCooldown}s`
+              : 'Enhance text ✨'
+          "
+        >
+          <span v-if="isEnhancing" class="enhance-spinner">⏳</span>
+          <span v-else-if="enhanceCooldown > 0" class="enhance-cooldown">{{
+            enhanceCooldown
+          }}</span>
+          <span v-else class="enhance-icon">✨</span>
+        </button>
+        <button
+          type="submit"
+          :disabled="isLoading || isEnhancing"
+          class="send-btn"
+        >
           <svg
             class="send-icon"
             xmlns="http://www.w3.org/2000/svg"
