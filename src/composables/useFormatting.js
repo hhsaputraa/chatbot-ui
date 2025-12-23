@@ -57,18 +57,18 @@ export function useFormatting() {
    */
   function formatCell(value, colName) {
     const type = getColumnType(colName)
-    
+
     if (type === "currency") {
       return formatter.format(parseFloat(value) || 0)
     }
-    
+
     if (type === "datetime") {
       const d = new Date(value)
       return isNaN(d)
         ? value
-        : d.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })
+        : d.toISOString().split('T')[0]
     }
-    
+
     // type === 'number' or 'text' → display as is
     return value
   }
