@@ -107,7 +107,6 @@ export function useAuth() {
 
             if (response.ok) {
                 const data = await response.json();
-                // Backend logic: returns { data: { user: ... } }
                 if (data.data?.user) {
                     user.value = data.data.user;
                 }

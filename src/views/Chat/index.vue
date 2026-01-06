@@ -1,26 +1,48 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { onMounted, onUnmounted, watch, nextTick, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "../../composables/useAuth";
+import { useChat } from "../../composables/useChat";
 import ChatMessage from "../../components/ChatMessage.vue";
-import { useTablePagination } from "../../composables/useTablePagination";
 
-const messages = ref([]);
-const userInput = ref("");
-const isLoading = ref(false);
-const chatContainer = ref(null);
-
-// Text enhancer state
-const isEnhancing = ref(false);
-const enhanceCooldown = ref(0);
-let cooldownInterval = null;
-
-const { initPagination } = useTablePagination();
 const router = useRouter();
 const { logout } = useAuth();
+const chatContainer = ref(null);
 
-// modal state for Improve Query choices
+// Improve Query Modal State
 const showImproveModal = ref(false);
+
+const {
+  messages,
+  userInput,
+  isLoading,
+  isEnhancing,
+  enhanceCooldown,
+  startNewChat,
+  handleSubmit,
+  handleEnhance,
+  handleSuggestionClick,
+} = useChat();
+
+// Environment variables for UI text only
+const WELCOME_TITLE = import.meta.env.VITE_CHAT_WELCOME_TITLE;
+const WELCOME_SUBTITLE = import.meta.env.VITE_CHAT_WELCOME_SUBTITLE;
+
+onMounted(() => {
+  startNewChat();
+});
+
+// Auto-scroll to bottom when messages change
+watch(
+  () => messages.value.length,
+  () => {
+    nextTick(() => {
+      if (chatContainer.value) {
+        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+      }
+    });
+  }
+);
 
 function openImproveModal(e) {
   e && e.preventDefault();
@@ -35,219 +57,6 @@ function navigateTo(path) {
   closeImproveModal();
   router.push(path);
 }
-
-// Environment variables
-const WELCOME_TITLE = import.meta.env.VITE_CHAT_WELCOME_TITLE;
-const WELCOME_SUBTITLE = import.meta.env.VITE_CHAT_WELCOME_SUBTITLE;
-const START_MESSAGE = import.meta.env.VITE_CHAT_START_MESSAGE;
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-onMounted(() => {
-  startNewChat();
-});
-
-onUnmounted(() => {
-  if (cooldownInterval) {
-    clearInterval(cooldownInterval);
-  }
-});
-
-function startNewChat() {
-  messages.value = [];
-  nextTick(() => {
-    messages.value.push({ role: "bot", type: "text", content: START_MESSAGE });
-  });
-}
-
-function handleSuggestionClick(text) {
-  userInput.value = text;
-  handleSubmit();
-}
-
-/**
- * Format error message based on backend error codes
- * @param {Object} errorData - Error response from backend
- * @returns {string} - Formatted error message for user
- */
-function formatErrorMessage(errorData) {
-  const { error_code, message, error_detail } = errorData;
-
-  switch (error_code) {
-    case "METHOD_NOT_ALLOWED":
-      return "Metode HTTP tidak diizinkan.";
-
-    case "INVALID_JSON":
-      return "Format permintaan tidak valid. Silakan coba lagi.";
-
-    case "EMPTY_PROMPT":
-      return "Pertanyaan tidak boleh kosong. Silakan masukkan pertanyaan Anda.";
-
-    case "AI_GENERATION_FAILED":
-      return "Sistem AI sedang mengalami gangguan. Silakan coba lagi dalam beberapa saat.";
-
-    case "EMPTY_SQL":
-      return "AI tidak dapat menghasilkan query yang valid. Silakan perbaiki pertanyaan Anda.";
-
-    case "DANGEROUS_INTENT":
-      return "DITOLAK. Silakan ganti pertanyaan Anda.";
-
-    case "QUERY_EXECUTION_FAILED":
-      return `Query tidak dapat dieksekusi. ${
-        message || "Silakan perbaiki pertanyaan Anda."
-      }`;
-
-    default:
-      return (
-        message || "Terjadi kesalahan yang tidak diketahui. Silakan coba lagi."
-      );
-  }
-}
-
-async function handleEnhance() {
-  if (!userInput.value.trim() || isEnhancing.value || enhanceCooldown.value > 0)
-    return;
-
-  isEnhancing.value = true;
-  const originalText = userInput.value;
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/enhance`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ draft_prompt: originalText }),
-    });
-
-    const data = await response.json();
-
-    if (data.enhanced_prompt) {
-      userInput.value = data.enhanced_prompt;
-    } else {
-      // If enhancement fails, keep original text
-      console.error("Enhancement failed:", data);
-    }
-  } catch (error) {
-    console.error("Error enhancing text:", error);
-    // Keep original text on error
-  } finally {
-    isEnhancing.value = false;
-
-    // Start cooldown
-    enhanceCooldown.value = 15;
-    cooldownInterval = setInterval(() => {
-      enhanceCooldown.value--;
-      if (enhanceCooldown.value <= 0) {
-        clearInterval(cooldownInterval);
-        cooldownInterval = null;
-      }
-    }, 1000);
-  }
-}
-
-async function handleSubmit() {
-  if (!userInput.value.trim()) return;
-  isLoading.value = true;
-  const currentMessage = userInput.value;
-
-  messages.value.push({ role: "user", type: "text", content: currentMessage });
-  userInput.value = "";
-
-  const requestPayload = { prompt: currentMessage };
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/query`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestPayload),
-    });
-
-    let data;
-    try {
-      data = await response.json();
-    } catch (parseError) {
-      data = {
-        status: "error",
-        message: "Respons dari server tidak valid",
-        error_code: "INVALID_RESPONSE",
-      };
-    }
-
-    if (data.status === "error") {
-      const errorMessage = formatErrorMessage(data);
-      messages.value.push({
-        role: "bot",
-        type: "error",
-        content: errorMessage,
-        errorCode: data.error_code,
-        errorDetail: data.error_detail,
-      });
-    } else if (data.status === "ambiguous") {
-      messages.value.push({
-        role: "bot",
-        type: "suggestion",
-        content: data.message,
-        suggestions: data.suggestions,
-      });
-    } else if (data.status === "success" && data.data && data.data.rows) {
-      const messageIndex = messages.value.length;
-      messages.value.push({ role: "bot", type: "data", data: data.data });
-      if (data.data.rows.length > 0) {
-        initPagination(messageIndex, data.data.rows.length);
-      }
-    } else if (data.status === "success") {
-      messages.value.push({
-        role: "bot",
-        type: "text",
-        content: data.message || "Perintah berhasil dieksekusi.",
-      });
-    } else {
-      // Unknown status
-      messages.value.push({
-        role: "bot",
-        type: "error",
-        content: "Respons dari server tidak dikenali.",
-      });
-    }
-  } catch (error) {
-    let errorMsg = "Terjadi kesalahan yang tidak diketahui.";
-
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      errorMsg =
-        "Perangkat Anda sedang offline. Periksa koneksi internet Anda.";
-    } else if (
-      error &&
-      typeof error === "object" &&
-      error.message &&
-      (error.message.includes("Failed to fetch") ||
-        error.message.includes("NetworkError"))
-    ) {
-      errorMsg = "Tidak dapat terhubung dengan server";
-    } else if (error && error.message && error.message.includes("JSON")) {
-      errorMsg = "Respons dari server tidak valid. Silakan coba lagi.";
-    } else if (error && error.name === "TypeError") {
-      errorMsg = "Terjadi kesalahan jaringan. Periksa koneksi internet Anda.";
-    }
-
-    messages.value.push({
-      role: "bot",
-      type: "error",
-      content: errorMsg,
-      technicalDetail: error && error.message ? error.message : String(error),
-    });
-  }
-
-  isLoading.value = false;
-}
-
-watch(
-  () => messages.value.length,
-  () => {
-    nextTick(() => {
-      if (chatContainer.value) {
-        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-      }
-    });
-  }
-);
 </script>
 
 <template>
@@ -372,15 +181,18 @@ watch(
           <div class="suggestions">
             <span
               @click="
-                userInput =
+                handleSuggestionClick(
                   'Tampilkan semua nasabah dengan saldo lebih dari 10 juta'
+                )
               "
               class="suggestion"
             >
               Saldo > 10 juta
             </span>
             <span
-              @click="userInput = 'Tampilkan transaksi terakhir 5 nasabah'"
+              @click="
+                handleSuggestionClick('Tampilkan transaksi terakhir 5 nasabah')
+              "
               class="suggestion"
             >
               Transaksi terakhir
