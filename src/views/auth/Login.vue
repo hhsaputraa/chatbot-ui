@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { useAuth } from "../../composables/useAuth";
 import { useToast } from "../../composables/useToast";
 import { useRouter } from "vue-router";
+import { Icon } from "@iconify/vue";
 
 const { login, error: authError, isLoading } = useAuth();
 const { addToast } = useToast();
@@ -18,13 +19,11 @@ const isFormValid = computed(() => {
 const handleSubmit = async () => {
   if (!username.value || !password.value) return;
 
-  // Login logs success and redirects inside composable, or returns false
   const success = await login(username.value, password.value);
 
   if (success) {
     addToast("Login Berhasil! Selamat datang kembali.", "success");
   } else {
-    // authError is updated by useAuth
     addToast(authError.value || "Login gagal", "error");
   }
 };
@@ -33,32 +32,40 @@ const handleSubmit = async () => {
 <template>
   <div class="auth-container">
     <div class="auth-card">
-      <h2 class="auth-title">Login</h2>
-      <p class="auth-subtitle">Masuk untuk mengakses asisten bank Anda</p>
+      <div class="auth-header">
+        <h2 class="auth-title">Welcome Back</h2>
+        <p class="auth-subtitle">Login to access your banking assistant</p>
+      </div>
 
       <form @submit.prevent="handleSubmit" class="auth-form">
         <div class="form-group">
           <label for="username">Username</label>
-          <input
-            v-model="username"
-            type="text"
-            id="username"
-            placeholder="Masukan username"
-            required
-            :disabled="isLoading"
-          />
+          <div class="input-wrapper">
+            <Icon icon="heroicons:user" class="input-icon" />
+            <input
+              v-model="username"
+              type="text"
+              id="username"
+              placeholder="Enter your username"
+              required
+              :disabled="isLoading"
+            />
+          </div>
         </div>
 
         <div class="form-group">
           <label for="password">Password</label>
-          <input
-            v-model="password"
-            type="password"
-            id="password"
-            placeholder="Masukan password"
-            required
-            :disabled="isLoading"
-          />
+          <div class="input-wrapper">
+            <Icon icon="heroicons:lock-closed" class="input-icon" />
+            <input
+              v-model="password"
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              required
+              :disabled="isLoading"
+            />
+          </div>
         </div>
 
         <button
@@ -67,14 +74,14 @@ const handleSubmit = async () => {
           :disabled="isLoading || !isFormValid"
         >
           <span v-if="isLoading" class="loader"></span>
-          <span v-else>Masuk</span>
+          <span v-else>Sign In</span>
         </button>
       </form>
 
       <div class="auth-footer">
         <p>
-          Belum punya akun?
-          <router-link to="/register">Daftar sekarang</router-link>
+          Don't have an account?
+          <router-link to="/register">Create Account</router-link>
         </p>
       </div>
     </div>
@@ -87,39 +94,72 @@ const handleSubmit = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: var(--bg-dark);
+  background: radial-gradient(
+      circle at top left,
+      rgba(59, 130, 246, 0.15),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgba(168, 85, 247, 0.15),
+      transparent 40%
+    ),
+    var(--bg-dark);
 }
 
 .auth-card {
   background-color: var(--bg-darker);
   padding: 2.5rem;
-  border-radius: 16px;
+  border-radius: 24px;
   width: 100%;
-  max-width: 400px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  animation: fadeIn 0.5s ease-out;
+  max-width: 420px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Glass-like aesthetic top highlight */
+.auth-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
 }
 
 .auth-title {
-  font-size: 1.8rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: var(--text-light);
   margin-bottom: 0.5rem;
-  text-align: center;
+  letter-spacing: -0.025em;
 }
 
 .auth-subtitle {
   color: var(--text-muted);
-  text-align: center;
-  margin-bottom: 2rem;
   font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .form-group {
@@ -129,53 +169,96 @@ const handleSubmit = async () => {
 }
 
 .form-group label {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--text-light);
-  font-weight: 500;
+  font-weight: 600;
+  margin-left: 2px;
 }
 
-.form-group input {
-  background-color: var(--input-bg);
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  transition: color 0.2s;
+  pointer-events: none;
+}
+
+.input-wrapper input {
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-color);
   color: var(--text-light);
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: all 0.2s;
+  padding: 0.875rem 1rem 0.875rem 2.75rem; /* Left padding for icon */
+  border-radius: 12px;
+  font-size: 0.95rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.form-group input:focus {
+.input-wrapper input:focus {
   border-color: var(--primary-blue);
+  background-color: rgba(59, 130, 246, 0.05); /* Very subtle blue tint */
   outline: none;
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.input-wrapper input:focus + .input-icon,
+.input-wrapper:focus-within .input-icon {
+  color: var(--primary-blue);
+}
+
+.input-wrapper input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
 }
 
 .auth-btn {
-  background-color: var(--primary-blue);
+  background: linear-gradient(
+    135deg,
+    var(--primary-blue) 0%,
+    var(--primary-blue-hover) 100%
+  );
   color: white;
-  padding: 0.8rem;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 12px;
   font-weight: 600;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 48px;
+  height: 50px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  font-size: 1rem;
 }
 
 .auth-btn:hover:not(:disabled) {
-  filter: brightness(110%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.auth-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .auth-btn:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .auth-footer {
   margin-top: 2rem;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
 }
 
@@ -183,31 +266,25 @@ const handleSubmit = async () => {
   color: var(--primary-blue);
   text-decoration: none;
   font-weight: 600;
+  margin-left: 4px;
+  transition: color 0.2s;
 }
 
 .auth-footer a:hover {
+  color: #60a5fa;
   text-decoration: underline;
-}
-
-.error-alert {
-  background-color: rgba(239, 68, 68, 0.1);
-  border: 1px solid #ef4444;
-  color: #fca5a5;
-  padding: 0.75rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  text-align: center;
+  text-underline-offset: 4px;
 }
 
 .loader {
   width: 20px;
   height: 20px;
-  border: 2px solid #ffffff;
-  border-bottom-color: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-bottom-color: white;
   border-radius: 50%;
   display: inline-block;
   box-sizing: border-box;
-  animation: rotation 1s linear infinite;
+  animation: rotation 0.8s linear infinite;
 }
 
 @keyframes rotation {
@@ -219,10 +296,10 @@ const handleSubmit = async () => {
   }
 }
 
-@keyframes fadeIn {
+@keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
