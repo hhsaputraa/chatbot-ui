@@ -104,11 +104,32 @@ export function useChat() {
 
   function processResponse(data) {
     if (data.status === "error") {
-      messages.value.push({
-        role: "bot",
-        type: "error",
-        content: getFriendlyErrorMessage(data),
-      });
+      // 1. Soft Refusal (Conversational) - Amber
+      if (data.error_code === ERROR_CODES.CHAT_RESPONSE) {
+         messages.value.push({
+          role: "bot",
+          type: "warning",
+          content: data.message,
+        });
+      } 
+      // 2. Dangerous Intent (Security Block) - Red, No Header
+      else if (data.error_code === ERROR_CODES.DANGEROUS_INTENT) {
+        messages.value.push({
+          role: "bot",
+          type: "dangerous", // Specialized type
+          content: "PERTANYAAN DITOLAK", 
+          technicalDetail: data.message // Keep original detail if needed for admin, or remove if strictly hidden
+        });
+      }
+      // 3. System Error - Red with Header
+      else {
+        messages.value.push({
+          role: "bot",
+          type: "error",
+          content: getFriendlyErrorMessage(data),
+          technicalDetail: data.message
+        });
+      }
     } else if (data.status === "ambiguous") {
       messages.value.push({
         role: "bot",
