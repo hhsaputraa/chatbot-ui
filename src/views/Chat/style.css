@@ -14,6 +14,15 @@
   flex-direction: column;
   border-right: 1px solid var(--border-color);
   padding: 10px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  padding: 0;
+  border-right: none;
 }
 
 .sidebar-header {
@@ -120,16 +129,64 @@
   flex-direction: column;
   background-color: var(--bg-dark);
   overflow: hidden;
+  position: relative; /* For overlays if needed */
+}
+
+/* Chat Header */
+.chat-header {
+  height: 60px;
+  background-color: var(--bg-dark);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Space between toggle and profile */
+  padding: 0 24px;
+}
+
+.toggle-sidebar-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.toggle-sidebar-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-light);
+}
+
+.toggle-sidebar-btn .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
 }
 
 .chat-history {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 0;
   scroll-behavior: smooth;
+  width: 100%;
+}
+
+.chat-content {
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
+  padding: 20px 0;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-history::-webkit-scrollbar {
@@ -151,7 +208,8 @@
 
 /* Welcome Card */
 .welcome-card {
-  max-width: 800px;
+  /* max-width: 800px;  Removed constraint as parent handles it now, or keep if specifically narrower */
+  width: 100%;
   margin: auto;
   padding: 40px;
   background: transparent;
@@ -161,7 +219,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  flex: 1; /* Grow to fill space for vertical centering */
 }
 
 .welcome-card h2 {
@@ -396,8 +454,12 @@
     padding: 8px;
     flex-direction: row;
     gap: 8px;
+    overflow: visible; /* Prevent hiding on mobile if layout changes */
+    transition: none; /* Disable complex transition on mobile for now */
   }
 
+  /* Adjust mobile toggling later if needed, current mobile layout is horizontal */
+  
   .sidebar-header {
     flex: 1;
     margin-bottom: 0;
@@ -411,6 +473,7 @@
   .welcome-card {
     margin: 20px;
     padding: 24px;
+    height: auto;
   }
 
   .welcome-card h2 {

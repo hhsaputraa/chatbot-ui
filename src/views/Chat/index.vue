@@ -10,6 +10,13 @@ const router = useRouter();
 const { logout, isAdmin } = useAuth();
 const chatContainer = ref(null);
 
+// Sidebar State
+const isSidebarOpen = ref(true);
+
+function toggleSidebar() {
+  isSidebarOpen.value = !isSidebarOpen.value;
+}
+
 // Improve Query Modal State
 const showImproveModal = ref(false);
 
@@ -63,9 +70,9 @@ function navigateTo(path) {
 <template>
   <div class="app-layout">
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ collapsed: !isSidebarOpen }">
       <div class="sidebar-header">
-        <button class="new-chat-btn" @click="startNewChat">
+        <button class="new-chat-btn" @click="startNewChat" v-if="isSidebarOpen">
           <svg
             class="icon"
             fill="none"
@@ -84,7 +91,7 @@ function navigateTo(path) {
       </div>
 
       <!-- Improve Query Button - Bottom of Sidebar -->
-      <div v-if="isAdmin" class="sidebar-footer">
+      <div v-if="isAdmin && isSidebarOpen" class="sidebar-footer">
         <button class="improve-query-btn" @click="openImproveModal">
           <svg
             class="icon"
@@ -141,6 +148,42 @@ function navigateTo(path) {
     <!-- Main Chat Area -->
     <main class="chat-main">
       <header class="chat-header">
+        <button
+          class="toggle-sidebar-btn"
+          @click="toggleSidebar"
+          :aria-label="isSidebarOpen ? 'Close Sidebar' : 'Open Sidebar'"
+        >
+          <!-- Icon when Sidebar is OPEN: Show 'Collapse' arrow -->
+          <svg
+            v-if="isSidebarOpen"
+            class="icon"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5"
+            />
+          </svg>
+          <!-- Icon when Sidebar is CLOSED: Show 'Menu' bars -->
+          <svg
+            v-else
+            class="icon"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+            />
+          </svg>
+        </button>
         <div class="header-content">
           <UserDropdown />
         </div>
@@ -152,47 +195,51 @@ function navigateTo(path) {
         aria-live="polite"
         aria-label="Chat history"
       >
-        <!-- Welcome Card -->
-        <div v-if="messages.length === 1" class="welcome-card">
-          <h2>{{ WELCOME_TITLE }}</h2>
-          <p>{{ WELCOME_SUBTITLE }}</p>
-          <div class="suggestions">
-            <span
-              @click="
-                handleSuggestionClick(
-                  'Tampilkan semua nasabah dengan saldo lebih dari 10 juta'
-                )
-              "
-              class="suggestion"
-            >
-              Saldo > 10 juta
-            </span>
-            <span
-              @click="
-                handleSuggestionClick('Tampilkan transaksi terakhir 5 nasabah')
-              "
-              class="suggestion"
-            >
-              Transaksi terakhir
-            </span>
+        <div class="chat-content">
+          <!-- Welcome Card -->
+          <div v-if="messages.length === 1" class="welcome-card">
+            <h2>{{ WELCOME_TITLE }}</h2>
+            <p>{{ WELCOME_SUBTITLE }}</p>
+            <div class="suggestions">
+              <span
+                @click="
+                  handleSuggestionClick(
+                    'Tampilkan semua nasabah dengan saldo lebih dari 10 juta'
+                  )
+                "
+                class="suggestion"
+              >
+                Saldo > 10 juta
+              </span>
+              <span
+                @click="
+                  handleSuggestionClick(
+                    'Tampilkan transaksi terakhir 5 nasabah'
+                  )
+                "
+                class="suggestion"
+              >
+                Transaksi terakhir
+              </span>
+            </div>
           </div>
-        </div>
 
-        <!-- Chat Messages -->
-        <ChatMessage
-          v-for="(message, index) in messages"
-          :key="index"
-          :message="message"
-          :message-index="index"
-          :style="{ animationDelay: `${index * 0.05}s` }"
-          @suggestion-click="handleSuggestionClick"
-        />
+          <!-- Chat Messages -->
+          <ChatMessage
+            v-for="(message, index) in messages"
+            :key="index"
+            :message="message"
+            :message-index="index"
+            :style="{ animationDelay: `${index * 0.05}s` }"
+            @suggestion-click="handleSuggestionClick"
+          />
 
-        <!-- Loading Indicator -->
-        <div v-if="isLoading" class="loading-dots">
-          <span></span>
-          <span></span>
-          <span></span>
+          <!-- Loading Indicator -->
+          <div v-if="isLoading" class="loading-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </div>
       </div>
 
