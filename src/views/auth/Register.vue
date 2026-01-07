@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useAuth } from "../../composables/useAuth";
+import { useToast } from "../../composables/useToast";
 import { useRouter } from "vue-router";
 
 const { register, error: authError, isLoading } = useAuth();
+const { addToast } = useToast();
 const router = useRouter();
 
 const form = ref({
@@ -35,11 +37,12 @@ const handleSubmit = async () => {
   );
 
   if (success) {
-    successMessage.value =
-      "Registrasi berhasil! Mengalihkan ke halaman login...";
+    addToast("Registrasi berhasil! Mengalihkan ke halaman login...", "success");
     setTimeout(() => {
       router.push("/login");
     }, 1500);
+  } else {
+    addToast(authError.value || "Registrasi gagal", "error");
   }
 };
 </script>
@@ -51,13 +54,6 @@ const handleSubmit = async () => {
       <p class="auth-subtitle">Buat akun untuk memulai</p>
 
       <form @submit.prevent="handleSubmit" class="auth-form">
-        <div v-if="authError" class="error-alert">
-          {{ authError }}
-        </div>
-        <div v-if="successMessage" class="success-alert">
-          {{ successMessage }}
-        </div>
-
         <div class="form-group">
           <label>Full Name</label>
           <input

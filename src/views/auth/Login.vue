@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useAuth } from "../../composables/useAuth";
+import { useToast } from "../../composables/useToast";
 import { useRouter } from "vue-router";
 
 const { login, error: authError, isLoading } = useAuth();
+const { addToast } = useToast();
 const router = useRouter();
 
 const username = ref("");
@@ -17,7 +19,14 @@ const handleSubmit = async () => {
   if (!username.value || !password.value) return;
 
   // Login logs success and redirects inside composable, or returns false
-  await login(username.value, password.value);
+  const success = await login(username.value, password.value);
+
+  if (success) {
+    addToast("Login Berhasil! Selamat datang kembali.", "success");
+  } else {
+    // authError is updated by useAuth
+    addToast(authError.value || "Login gagal", "error");
+  }
 };
 </script>
 
@@ -28,10 +37,6 @@ const handleSubmit = async () => {
       <p class="auth-subtitle">Masuk untuk mengakses asisten bank Anda</p>
 
       <form @submit.prevent="handleSubmit" class="auth-form">
-        <div v-if="authError" class="error-alert">
-          {{ authError }}
-        </div>
-
         <div class="form-group">
           <label for="username">Username</label>
           <input
