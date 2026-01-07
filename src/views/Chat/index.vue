@@ -4,9 +4,10 @@ import { useRouter } from "vue-router";
 import { useAuth } from "../../composables/useAuth";
 import { useChat } from "../../composables/useChat";
 import ChatMessage from "../../components/ChatMessage.vue";
+import UserDropdown from "../../components/UserDropdown.vue";
 
 const router = useRouter();
-const { logout } = useAuth();
+const { logout, isAdmin } = useAuth();
 const chatContainer = ref(null);
 
 // Improve Query Modal State
@@ -82,37 +83,8 @@ function navigateTo(path) {
         </button>
       </div>
 
-      <div class="sidebar-nav">
-        <button
-          class="nav-item"
-          @click="logout"
-          style="
-            width: 100%;
-            justify-content: flex-start;
-            background: none;
-            border: none;
-            cursor: pointer;
-          "
-        >
-          <svg
-            class="icon"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75"
-            />
-          </svg>
-          Logout
-        </button>
-      </div>
-
       <!-- Improve Query Button - Bottom of Sidebar -->
-      <div class="sidebar-footer">
+      <div v-if="isAdmin" class="sidebar-footer">
         <button class="improve-query-btn" @click="openImproveModal">
           <svg
             class="icon"
@@ -168,6 +140,12 @@ function navigateTo(path) {
 
     <!-- Main Chat Area -->
     <main class="chat-main">
+      <header class="chat-header">
+        <div class="header-content">
+          <UserDropdown />
+        </div>
+      </header>
+
       <div
         class="chat-history"
         ref="chatContainer"
@@ -269,4 +247,35 @@ function navigateTo(path) {
   </div>
 </template>
 
-<style scoped src="./style.css"></style>
+<style scoped>
+/* Import original styles */
+@import "./style.css";
+
+/* Additional Header Styles */
+.chat-header {
+  height: 60px;
+  background-color: var(--bg-dark);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.header-content {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end; /* Align right */
+  align-items: center;
+}
+
+.spacer {
+  flex-grow: 1;
+}
+
+/* Ensure chat history takes remaining height */
+.chat-history {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+</style>

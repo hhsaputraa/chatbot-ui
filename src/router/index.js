@@ -43,13 +43,13 @@ const routes = [
         path: '/improve_query',
         name: 'ImproveQuery',
         component: ImproveQueryView,
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
         path: '/improve_knowledge',
         name: 'ImproveKnowledge',
         component: ImproveKnowledgeView,
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiresAdmin: true }
     }
 ]
 
@@ -59,7 +59,7 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-    const { isAuthenticated, fetchUser, user } = useAuth();
+    const { isAuthenticated, isAdmin, fetchUser, user } = useAuth();
 
     // Attempt to fetch user profile if no user data is present
     // This restores the session on page reload
@@ -70,6 +70,9 @@ router.beforeEach(async (to, from, next) => {
     if (to.meta.requiresAuth && !isAuthenticated.value) {
         next('/login');
     } else if (to.meta.guestOnly && isAuthenticated.value) {
+        next('/');
+    } else if (to.meta.requiresAdmin && !isAdmin.value) {
+        // Redirect non-admins to home if they try to access admin routes
         next('/');
     } else {
         next();
