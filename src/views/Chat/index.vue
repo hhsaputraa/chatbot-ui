@@ -40,7 +40,18 @@ onMounted(() => {
   startNewChat();
 });
 
-// Auto-scroll to bottom when messages change
+const chatInputRef = ref(null);
+
+// Auto-focus input when loading finishes
+watch(isLoading, (newVal) => {
+  if (!newVal) {
+    nextTick(() => {
+      chatInputRef.value?.focus();
+    });
+  }
+});
+
+// Auto-scroll to best
 watch(
   () => messages.value.length,
   () => {
@@ -246,6 +257,7 @@ function navigateTo(path) {
       <!-- Chat Input Form -->
       <form class="chat-input-form" @submit.prevent="handleSubmit">
         <input
+          ref="chatInputRef"
           class="chat-input"
           type="text"
           placeholder="silahkan masukan kebutuhan.."
