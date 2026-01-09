@@ -2,6 +2,8 @@
 import { ref, onMounted, onUnmounted, watch, nextTick } from "vue"
 import { Icon } from "@iconify/vue"
 import DataTable from "../../components/DataTable.vue"
+import { useAdmin } from "../../composables/useAdmin"
+
 
 // Environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
@@ -137,6 +139,8 @@ const columns = ref(placeholderData.value.columns)
 const rows = ref(placeholderData.value.rows)
 
 const messageIndex = ref(0)
+
+const { retrainSystem, isLoading: isRetraining, isPolling, progressLogs, progressPercentage } = useAdmin()
 
 const loading = ref(false)
 const error = ref(null)
@@ -565,6 +569,14 @@ watch(showEditModal, async val => {
     sqlTextarea.value?.setSelectionRange?.(len, len)
   }
 })
+watch(isPolling, (val) => {
+  if (!val && progressPercentage.value >= 100) {
+     // User requirement: "Refresh halaman"
+     setTimeout(() => {
+        window.location.reload()
+     }, 1500)
+  }
+})
 </script>
 
 <template>
@@ -631,8 +643,60 @@ watch(showEditModal, async val => {
               >
                 Load CACHE
               </button>
+              <button
+                @click.prevent="retrainSystem"
+                :disabled="isRetraining"
+                class="switch-btn"
+                title="Reload Data / Retrain System"
+              >
+                <Icon v-if="isRetraining || isPolling" icon="svg-spinners:ring-resize" />
+                <Icon v-else icon="solar:restart-bold" />
+                Reload Data
+              </button>
               <span v-if="loading" class="loading-text">Loading...</span>
             </div>
+
+            <!-- LOG STATUS MODAL -->
+            <teleport to="body">
+              <div v-if="isPolling" class="modal-overlay process-modal">
+                <div class="modal-container process-container">
+                  <div class="modal-header">
+                     <h3 class="modal-title">
+                       <Icon icon="solar:server-square-bold" class="icon-spin" />
+                       System Retraining
+                     </h3>
+                  </div>
+                  <div class="modal-body terminal-body">
+                    <!-- Progress Section -->
+                    <div class="progress-section">
+                       <div class="progress-info">
+                         <span class="progress-label">Status: {{ progressPercentage < 100 ? 'Memproses...' : 'Selesai' }}</span>
+                         <span class="progress-percent">{{ progressPercentage }}%</span>
+                       </div>
+                       <div class="progress-bar-track">
+                          <div class="progress-bar-fill" :style="{ width: progressPercentage + '%' }"></div>
+                       </div>
+                    </div>
+
+                    <!-- Compact Logs -->
+                    <div class="terminal-window compact">
+                      <div v-for="(log, index) in progressLogs" :key="index" class="log-line">
+                        <span class="log-arrow">></span> {{ log }}
+                      </div>
+                      <div class="typing-indicator" v-if="progressPercentage < 100">
+                        <span>_</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                    <p class="info-text">Mohon jangan tutup halaman ini sampai proses selesai (100%).</p>
+                    <p v-if="progressPercentage >= 100" class="success-hint">
+                        <Icon icon="svg-spinners:ring-resize" /> Refreshing page...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </teleport>
 
             <button
               v-if="activeCollection === 'bpr_supra_cache'"
@@ -872,3 +936,135 @@ watch(showEditModal, async val => {
 </template>
 
 <style scoped src="./style.css"></style>
+
+<style scoped>
+/* Process Modal Specifics */
+.process-modal {
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.85); /* Darker backdrop */
+}
+
+.process-container {
+  max-width: 600px;
+  width: 90%;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+.process-container .modal-header {
+  border-bottom: 1px solid #333;
+  padding: 1rem;
+}
+
+.process-container .modal-title {
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-spin {
+  animation: spin 2s linear infinite;
+  color: #00dc82; 
+}
+
+.terminal-body {
+  padding: 0;
+  background: #0f0f0f;
+  height: 300px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-window {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.9rem;
+  color: #a0a0a0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.log-line {
+  word-break: break-word;
+  line-height: 1.4;
+  color: #e0e0e0;
+}
+
+.log-arrow {
+  color: #00dc82;
+  font-weight: bold;
+  margin-right: 6px;
+}
+
+.typing-indicator {
+  color: #00dc82;
+  animation: blink 1s step-end infinite;
+}
+
+.info-text {
+  color: #666;
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 0;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Progress Bar Styles */
+.progress-section {
+  padding: 1rem 1.5rem 0.5rem;
+  background: #151515;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: #fff;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00dc82, #36e4da);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(0, 220, 130, 0.4);
+}
+
+.success-hint {
+   color: #00dc82;
+   margin-top: 8px;
+   display: flex;
+   justify-content: center;
+   align-items: center;
+   gap: 6px;
+   font-weight: bold;
+}
+
+/* Adjust terminal height for progress bar */
+.terminal-window.compact {
+    height: 180px; 
+}
+</style>

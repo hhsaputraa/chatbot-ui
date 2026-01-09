@@ -104,7 +104,6 @@ export function useChat() {
 
   function processResponse(data) {
     if (data.status === "error") {
-      // 1. Soft Refusal (Conversational) - Amber
       if (data.error_code === ERROR_CODES.CHAT_RESPONSE) {
          messages.value.push({
           role: "bot",
@@ -112,16 +111,14 @@ export function useChat() {
           content: data.message,
         });
       } 
-      // 2. Dangerous Intent (Security Block) - Red, No Header
       else if (data.error_code === ERROR_CODES.DANGEROUS_INTENT) {
         messages.value.push({
           role: "bot",
-          type: "dangerous", // Specialized type
+          type: "dangerous", 
           content: "PERTANYAAN DITOLAK", 
-          technicalDetail: data.message // Keep original detail if needed for admin, or remove if strictly hidden
+          technicalDetail: data.message 
         });
       }
-      // 3. System Error - Red with Header
       else {
         messages.value.push({
           role: "bot",

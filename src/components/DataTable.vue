@@ -127,12 +127,20 @@
 <script setup>
 import { computed, onMounted, watch, ref, reactive, onUnmounted } from "vue";
 import SearchBar from "./SearchBar.vue";
-import { jsPDF } from "jspdf";
-import "jspdf-autotable";
 import PaginationControls from "./PaginationControls.vue";
 import { useFormatting } from "../composables/useFormatting";
 import { useTablePagination } from "../composables/useTablePagination";
 import { usePaginationHelpers } from "../composables/usePaginationHelpers";
+import { useDataExport } from "../composables/useDataExport";
+import { useToast } from "../composables/useToast";
+
+// === CONSTANTS ===
+const DEFAULT_COLUMN_WIDTH = 150;
+const MIN_COLUMN_WIDTH = 80;
+const AUTO_RESIZE_PADDING = 40;
+const MAX_COLUMN_WIDTH = 500;
+const FONT_HEADER_MEASURE = "600 0.9rem 'Inter', sans-serif";
+const FONT_CELL_MEASURE = "400 0.9rem 'Inter', sans-serif";
 
 const props = defineProps({
   messageIndex: {
@@ -147,13 +155,6 @@ const props = defineProps({
     type: Array,
     required: true,
   },
-  // key to trigger reset (e.g., collection name)
-  resetKey: {
-    type: [String, Number],
-    required: false,
-    default: null,
-  },
-  // keep table height by padding rows to rowsPerPage (optional)
   keepHeight: {
     type: Boolean,
     required: false,
@@ -164,7 +165,6 @@ const props = defineProps({
 const emit = defineEmits(["edit-row", "delete-row"]);
 
 function emitEdit(rowArray) {
-  // assume id is at index 0
   const id = rowArray && rowArray[0];
   emit("edit-row", id);
 }
@@ -174,7 +174,6 @@ function emitDelete(rowArray) {
   emit("delete-row", id);
 }
 
-// Composables
 const { formatCell, formatHeader } = useFormatting();
 const {
   paginationState,
@@ -188,37 +187,30 @@ const {
   getFilteredRowCount,
   goToPage,
   changeRowsPerPage,
-  // getFilteredRows, // Not directly used in template, checking usage... Used in Export
   getFilteredRows,
 } = useTablePagination();
 
 const { handleJumpToPage: jumpToPageHelper, clearJumpToPageInput } =
   usePaginationHelpers();
 
-// Initialize pagination on mount
+const {
+  exportToCSV: exportCSV,
+  exportToPDF: exportPDF,
+  exportToPDFv2: exportPDFv2,
+} = useDataExport();
+const { addToast } = useToast();
+
 onMounted(() => {
   initPagination(props.messageIndex, props.rows.length);
 });
 
-// Watch for explicit reset key (e.g., collection change) and rows length changes
-watch(
-  () => props.resetKey,
-  () => {
-    // reset search and pagination for this messageIndex
-    clearSearch(props.messageIndex);
-    initPagination(props.messageIndex, props.rows.length);
-  }
-);
-
 watch(
   () => props.rows.length,
   (newLen, oldLen) => {
-    // if number of rows changed drastically, re-init pagination to avoid staying on invalid page
     initPagination(props.messageIndex, props.rows.length);
   }
 );
 
-// Computed properties
 const searchQuery = computed(() => searchState.value[props.messageIndex] || "");
 const currentPage = computed(
   () => paginationState.value[props.messageIndex]?.currentPage || 1
@@ -240,16 +232,14 @@ const paginatedRows = computed(() =>
   getPaginatedRows(props.messageIndex, props.rows, props.columns, formatCell)
 );
 
-// Optionally ensure table keeps stable height by padding rows when last page has fewer items
 const paddedRows = computed(() => {
   const pageRows = paginatedRows.value || [];
   if (!props.keepHeight) return pageRows;
-  const perPage = rowsPerPage.value || 10; // Default fallback to 10
+  const perPage = rowsPerPage.value || 10;
   const target = perPage;
   const colsCount = props.columns.length;
   const padded = pageRows.slice();
   while (padded.length < target) {
-    // create an empty row with same number of columns
     const emptyRow = new Array(colsCount).fill("");
     padded.push(emptyRow);
   }
@@ -257,7 +247,6 @@ const paddedRows = computed(() => {
 });
 
 function rowKey(rowArray, rIndex) {
-  // For real rows use the id if present (first column), otherwise fallback to index
   const id = rowArray && rowArray[0];
   if (id) return String(id);
   return `empty-${rIndex}`;
@@ -267,7 +256,6 @@ const totalPages = computed(() =>
   getTotalPages(props.messageIndex, filteredCount.value)
 );
 
-// Event handlers
 function handleSearchUpdate(query) {
   updateSearch(props.messageIndex, query);
 }
@@ -298,19 +286,15 @@ function handleJumpToPage() {
   );
 }
 
-// === COLUMN RESIZING LOGIC ===
-const columnWidths = reactive({}); // Stores specific widths for columns key: width(px)
+const columnWidths = reactive({});
 
 function getColumnWidth(key) {
   if (columnWidths[key]) {
     return `${columnWidths[key]}px`;
   }
-  // Force a default pixel width for Fixed Layout to respect.
-  // Prevents "squashing" by forcing table to grow.
-  return "150px";
+  return `${DEFAULT_COLUMN_WIDTH}px`;
 }
 
-// Variables for resizing
 let resizingColumn = null;
 let startX = 0;
 let startWidth = 0;
@@ -323,20 +307,18 @@ function startResize(event, columnKey) {
   startX = event.clientX;
   startWidth = parentTh.getBoundingClientRect().width;
 
-  // Add global listeners
   document.addEventListener("mousemove", onMouseMove);
   document.addEventListener("mouseup", onMouseUp);
 
-  // Add resizing class to body to force cursor
   document.body.style.cursor = "col-resize";
-  document.body.style.userSelect = "none"; // Prevent text selection
+  document.body.style.userSelect = "none";
 }
 
 function onMouseMove(event) {
   if (!resizingColumn) return;
 
   const deltaX = event.clientX - startX;
-  const newWidth = Math.max(80, startWidth + deltaX); // Min width 80px
+  const newWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + deltaX);
 
   columnWidths[resizingColumn] = newWidth;
 }
@@ -355,10 +337,9 @@ function onMouseUp() {
 function autoResize(columnKey) {
   // 1. Measure Header
   const headerText = formatHeader(columnKey);
-  let maxWidth = getTextWidth(headerText, "600 0.9rem 'Inter', sans-serif"); // Adjust font to match CSS
+  let maxWidth = getTextWidth(headerText, FONT_HEADER_MEASURE);
 
   // 2. Measure Visible Rows (Current Page)
-  // We scan visible rows (paginatedRows) to keep performance high
   const rowsToCheck = paginatedRows.value || [];
   const colIndex = props.columns.indexOf(columnKey);
 
@@ -366,16 +347,16 @@ function autoResize(columnKey) {
     rowsToCheck.forEach((row) => {
       const cellValue = row[colIndex];
       const formatted = formatCell(cellValue, columnKey);
-      const w = getTextWidth(formatted, "400 0.9rem 'Inter', sans-serif");
+      const w = getTextWidth(formatted, FONT_CELL_MEASURE);
       if (w > maxWidth) maxWidth = w;
     });
   }
 
-  // 3. Add Padding (Cell padding is 16px left + 16px right = 32px. Add buffer)
-  const padding = 40;
-
-  // 4. Set Width (Cap at 500px to avoid massive columns)
-  columnWidths[columnKey] = Math.min(Math.max(maxWidth + padding, 100), 500);
+  // 3. Set Width
+  columnWidths[columnKey] = Math.min(
+    Math.max(maxWidth + AUTO_RESIZE_PADDING, MIN_COLUMN_WIDTH),
+    MAX_COLUMN_WIDTH
+  );
 }
 
 // Helper canvas for text measurement
@@ -390,14 +371,12 @@ function getTextWidth(text, font) {
 }
 
 onUnmounted(() => {
-  // Cleanup listeners just in case
   document.removeEventListener("mousemove", onMouseMove);
   document.removeEventListener("mouseup", onMouseUp);
 });
 
 // === EXPORT LOGIC ===
-function getExportData() {
-  // Gunakan fungsi dari composable Anda untuk mendapatkan semua baris yang cocok dengan filter
+function getExportPayload() {
   const filteredRows = getFilteredRows(
     props.messageIndex,
     props.rows,
@@ -405,13 +384,10 @@ function getExportData() {
     formatCell
   );
 
-  // 1. Buat Headers (memakai formatHeader Anda)
   const headers = props.columns.map((col) => formatHeader(col));
 
-  // 2. Buat Body (memakai formatCell Anda)
   const body = filteredRows.map((rowArray) => {
     return rowArray.map((cellValue, cIndex) => {
-      // Format setiap sel persis seperti yang terlihat di tabel
       return formatCell(cellValue, props.columns[cIndex]);
     });
   });
@@ -419,150 +395,53 @@ function getExportData() {
   return { headers, body };
 }
 
-/**
- * Memicu unduhan file PDF
- */
+function exportToCSV() {
+  exportCSV(getExportPayload());
+  addToast({
+    title: "Export CSV",
+    message: "Sedang mengunduh CSV...",
+    type: "success",
+  });
+}
+
 async function exportToPDF() {
   try {
-    const { headers, body } = getExportData();
-
-    const doc = new jsPDF({
-      orientation: "landscape",
+    addToast({
+      title: "Export PDF",
+      message: "Sedang memproses PDF...",
+      type: "info",
     });
-
-    const tableOptions = {
-      head: [headers],
-      body: body,
-      startY: 20,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-    };
-
-    // Try to use autoTable attached to the doc first, otherwise dynamic import the plugin
-    if (typeof doc.autoTable === "function") {
-      doc.autoTable(tableOptions);
-    } else {
-      // dynamic import as fallback (works with ESM builds)
-      const at = await import("jspdf-autotable");
-      // plugin may export default function or attach autoTable to doc
-      if (at && typeof at.default === "function") {
-        // some versions accept (doc, options)
-        try {
-          at.default(doc, tableOptions);
-        } catch (e) {
-          // fallback to calling resulting autoTable on doc if attached
-          if (typeof doc.autoTable === "function") doc.autoTable(tableOptions);
-          else throw e;
-        }
-      } else if (typeof doc.autoTable === "function") {
-        doc.autoTable(tableOptions);
-      } else {
-        throw new Error("jspdf-autotable plugin not available");
-      }
-    }
-
-    doc.text("Laporan Data", 14, 15);
-    doc.save("export_data.pdf");
-  } catch (err) {
-    console.error("exportToPDF error:", err);
-    try {
-      alert(
-        "Gagal mengekspor PDF: " +
-          (err && err.message ? err.message : String(err))
-      );
-    } catch (e) {}
+    await exportPDF(getExportPayload());
+    addToast({
+      title: "Berhasil",
+      message: "PDF berhasil diexport.",
+      type: "success",
+    });
+  } catch (e) {
+    addToast({ title: "Gagal Export PDF", message: e.message, type: "error" });
   }
 }
 
-// Export using pdfmake (PDF v2)
 async function exportToPDFv2() {
   try {
-    const { headers, body } = getExportData();
-
-    // dynamic import pdfmake to avoid bundling issues
-    const pdfMakeModule = await import("pdfmake/build/pdfmake");
-    const pdfFonts = await import("pdfmake/build/vfs_fonts");
-
-    const pdfMake =
-      pdfMakeModule && pdfMakeModule.default
-        ? pdfMakeModule.default
-        : pdfMakeModule;
-
-    if (pdfFonts && (pdfFonts.pdfMake || pdfFonts.vfs)) {
-      // set vfs depending on export shape
-      if (pdfFonts.pdfMake && pdfFonts.pdfMake.vfs)
-        pdfMake.vfs = pdfFonts.pdfMake.vfs;
-      else if (pdfFonts.vfs) pdfMake.vfs = pdfFonts.vfs;
-    }
-
-    // build table body for pdfmake: include header row
-    const tableBody = [headers, ...body];
-
-    const dd = {
-      content: [
-        { text: "Laporan Data", style: "header" },
-        { text: "\n" },
-        {
-          style: "tableExample",
-          table: {
-            headerRows: 1,
-            body: tableBody,
-          },
-          layout: "lightHorizontalLines",
-        },
-      ],
-      styles: {
-        header: { fontSize: 16, bold: true, margin: [0, 0, 0, 8] },
-        tableExample: { margin: [0, 5, 0, 15] },
-        tableHeader: { bold: true, fontSize: 11, color: "black" },
-      },
-      defaultStyle: { fontSize: 9 },
-    };
-
-    pdfMake.createPdf(dd).download("export_data_v2.pdf");
-  } catch (err) {
-    console.error("exportToPDFv2 error:", err);
-    try {
-      alert(
-        "Gagal mengekspor PDF v2: " +
-          (err && err.message ? err.message : String(err))
-      );
-    } catch (e) {}
+    addToast({
+      title: "Export PDF v2",
+      message: "Sedang memproses PDF v2...",
+      type: "info",
+    });
+    await exportPDFv2(getExportPayload());
+    addToast({
+      title: "Berhasil",
+      message: "PDF v2 berhasil diexport.",
+      type: "success",
+    });
+  } catch (e) {
+    addToast({
+      title: "Gagal Export PDF v2",
+      message: e.message,
+      type: "error",
+    });
   }
-}
-
-function exportToCSV() {
-  const { headers, body } = getExportData();
-
-  // Gabungkan header
-  let csvContent = headers.join(",") + "\n";
-
-  // Gabungkan body
-  body.forEach((row) => {
-    // Pastikan nilai yang mengandung koma dibungkus tanda kutip
-    const escapedRow = row.map(
-      (cell) => `"${String(cell).replace(/"/g, '""')}"`
-    );
-    csvContent += escapedRow.join(",") + "\n";
-  });
-
-  // Buat Blob dan picu download
-  const blob = new Blob([csvContent], {
-    type: "text/csv;charset=utf-8;",
-  });
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  link.setAttribute("href", url);
-  link.setAttribute("download", "export_data.csv");
-  link.style.visibility = "hidden";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
 }
 </script>
 
