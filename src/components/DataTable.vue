@@ -17,7 +17,7 @@
 
     <!-- Table -->
     <div class="table-wrapper">
-      <table class="data-table">
+      <table class="data-table" :style="{ width: totalTableWidth + 'px' }">
         <thead>
           <tr>
             <th
@@ -134,11 +134,13 @@ import { usePaginationHelpers } from "../composables/usePaginationHelpers";
 import { useDataExport } from "../composables/useDataExport";
 import { useToast } from "../composables/useToast";
 
+// ... (imports remain the same)
+
 // === CONSTANTS ===
-const DEFAULT_COLUMN_WIDTH = 150;
-const MIN_COLUMN_WIDTH = 80;
-const AUTO_RESIZE_PADDING = 40;
-const MAX_COLUMN_WIDTH = 500;
+const DEFAULT_COLUMN_WIDTH = 180; // Increased default
+const MIN_COLUMN_WIDTH = 100;
+const AUTO_RESIZE_PADDING = 32;
+const MAX_COLUMN_WIDTH = 800;
 const FONT_HEADER_MEASURE = "600 0.9rem 'Inter', sans-serif";
 const FONT_CELL_MEASURE = "400 0.9rem 'Inter', sans-serif";
 
@@ -202,6 +204,7 @@ const { addToast } = useToast();
 
 onMounted(() => {
   initPagination(props.messageIndex, props.rows.length);
+  initColumnWidths();
 });
 
 watch(
@@ -209,6 +212,14 @@ watch(
   (newLen, oldLen) => {
     initPagination(props.messageIndex, props.rows.length);
   }
+);
+
+watch(
+  () => props.columns,
+  () => {
+    initColumnWidths();
+  },
+  { deep: true }
 );
 
 const searchQuery = computed(() => searchState.value[props.messageIndex] || "");
@@ -286,13 +297,34 @@ function handleJumpToPage() {
   );
 }
 
+// === RESIZING LOGIC ===
 const columnWidths = reactive({});
 
+function initColumnWidths() {
+  if (!props.columns || props.columns.length === 0) return;
+  props.columns.forEach((col) => {
+    if (!columnWidths[col]) {
+      // Set reasonable defaults based on column name
+      if (col === 'id') columnWidths[col] = 80; // Increased from 60
+      else if (col === 'action') columnWidths[col] = 180;
+      else if (col === 'category') columnWidths[col] = 200; // New specific default
+      else if (col.includes('prompt')) columnWidths[col] = 300; // Wider prompt
+      else if (col.includes('content') || col.includes('sql') || col.includes('query')) columnWidths[col] = 500; // Much wider for content
+      else columnWidths[col] = 250; // Increased general default
+    }
+  });
+}
+
+const totalTableWidth = computed(() => {
+  let sum = 0;
+  props.columns.forEach(col => {
+    sum += (columnWidths[col] || DEFAULT_COLUMN_WIDTH);
+  });
+  return Math.max(sum, 100); // Minimum safe width
+});
+
 function getColumnWidth(key) {
-  if (columnWidths[key]) {
-    return `${columnWidths[key]}px`;
-  }
-  return `${DEFAULT_COLUMN_WIDTH}px`;
+  return `${columnWidths[key] || DEFAULT_COLUMN_WIDTH}px`;
 }
 
 let resizingColumn = null;
@@ -305,7 +337,7 @@ function startResize(event, columnKey) {
 
   resizingColumn = columnKey;
   startX = event.clientX;
-  startWidth = parentTh.getBoundingClientRect().width;
+  startWidth = columnWidths[columnKey] || parentTh.getBoundingClientRect().width;
 
   document.addEventListener("mousemove", onMouseMove);
   document.addEventListener("mouseup", onMouseUp);
@@ -328,7 +360,6 @@ function onMouseUp() {
   document.removeEventListener("mousemove", onMouseMove);
   document.removeEventListener("mouseup", onMouseUp);
 
-  // Reset body style
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
 }
@@ -347,7 +378,9 @@ function autoResize(columnKey) {
     rowsToCheck.forEach((row) => {
       const cellValue = row[colIndex];
       const formatted = formatCell(cellValue, columnKey);
-      const w = getTextWidth(formatted, FONT_CELL_MEASURE);
+      // Limit check to first 100 chars to avoid perf issues on huge text
+      const textToMeasure = formatted ? String(formatted).substring(0, 100) + (String(formatted).length > 100 ? '...' : '') : ''; 
+      const w = getTextWidth(textToMeasure, FONT_CELL_MEASURE);
       if (w > maxWidth) maxWidth = w;
     });
   }
@@ -512,27 +545,30 @@ async function exportToPDFv2() {
 
 /* Data Table */
 .data-table {
-  width: fit-content; /* Allow table to grow beyond container */
-  min-width: 100%; /* Ensure it fills at least the container */
+  /* width is now controlled via inline style from JS */
+  min-width: 100%; /* Ensure table fills container by default */
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.9rem;
-  table-layout: fixed; /* Fixed layout for predictable resizing */
+  table-layout: fixed; /* Strictly fixed layout */
 }
 
 /* Resizable Header Th */
 .resizable-th {
   position: relative;
-  /* Default width handling is now via inline style, but set min-width to prevent squashing */
-  min-width: 150px;
-  background-clip: padding-box; /* Prevents background from covering border */
+  /* min-width handled in JS, but nice to have backup */
+  min-width: 80px; 
+  background-clip: padding-box;
+  text-transform: uppercase; /* More formal look */
+  letter-spacing: 0.05em;
+  font-size: 0.8rem;
 }
 
 .header-content {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 18px; /* Room for handle */
+  padding-right: 20px; /* Room for handle */
 }
 
 /* RESIZE HANDLE */
@@ -541,22 +577,46 @@ async function exportToPDFv2() {
   right: 0;
   top: 0;
   bottom: 0;
-  width: 6px;
+  width: 12px; /* Wider hit area */
   cursor: col-resize;
   background-color: transparent;
   transition: background-color 0.2s;
-  z-index: 20; /* Above header content */
+  z-index: 20; 
   user-select: none;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.resize-handle:hover,
-.resizable-th:hover .resize-handle {
-  background-color: rgba(66, 153, 225, 0.5); /* Show on hover */
+/* Visual indicator line inside handle (optional) */
+.resize-handle::after {
+  content: "";
+  display: block;
+  width: 2px;
+  height: 60%;
+  background-color: var(--border-color);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.resize-handle:hover::after,
+.resizable-th:hover .resize-handle::after {
+  opacity: 1;
+}
+
+.resize-handle:hover {
+  background-color: rgba(66, 153, 225, 0.1); 
 }
 
 /* Active resizing state */
 .resize-handle:active {
+  background-color: rgba(66, 153, 225, 0.3);
+}
+
+.resize-handle:active::after {
   background-color: var(--primary-blue);
+  opacity: 1;
 }
 
 .data-table th,
@@ -564,6 +624,7 @@ async function exportToPDFv2() {
   padding: 12px 16px;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color); /* Add vertical borders for clearer definition */
 
   /* Text overflow handling */
   overflow: hidden;
@@ -571,17 +632,22 @@ async function exportToPDFv2() {
   white-space: nowrap;
 
   vertical-align: middle;
-  box-sizing: border-box; /* Important for width calculations */
+  box-sizing: border-box;
+}
+
+.data-table th:last-child,
+.data-table td:last-child {
+  border-right: none;
 }
 
 .data-table th {
-  background-color: var(--bubble-bot-bg);
+  background-color: #1e293b; /* Slightly lighter/bluer header bg */
   color: var(--text-light);
-  font-weight: 600;
+  font-weight: 700;
   position: sticky;
   top: 0;
   z-index: 10;
-  border-right: 1px solid rgba(255, 255, 255, 0.05); /* Sepatator */
+  border-bottom: 2px solid var(--border-color); /* Thicker bottom border for header */
 }
 
 .data-table tbody tr:hover {
@@ -589,11 +655,7 @@ async function exportToPDFv2() {
   cursor: default;
 }
 
-/* Specific column width adjustments */
-.data-table th:first-child,
-.data-table td:first-child {
-  /* This is just a default default */
-}
+/* Specific column width adjustments can go here if needed */
 
 /* Scrollbar Styling */
 .table-wrapper::-webkit-scrollbar {

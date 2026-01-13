@@ -185,13 +185,12 @@ async function fetchCollection(collection) {
     rawData.value = data
 
     if (collection === "bpr_supra_rag") {
-      columns.value = ["id", "category", "prompt_preview", "content", "action"]
+      columns.value = ["id", "category", "prompt_preview", "content"]
       rows.value = data.map(item => [
         item.id,
         item.payload?.category ?? "",
         item.payload?.prompt_preview ?? "",
         item.payload?.content ?? "",
-        "",
       ])
     } else if (collection === "bpr_supra_cache") {
       columns.value = ["id", "prompt_asli", "sql_query", "action"]
@@ -830,10 +829,11 @@ watch(isPolling, (val) => {
                 <button
                   @click="showDeleteModal = false"
                   :disabled="deleteLoading"
+                  class="btn-secondary"
                 >
                   Cancel
                 </button>
-                <button @click="confirmDelete" :disabled="deleteLoading">
+                <button @click="confirmDelete" :disabled="deleteLoading" class="btn-danger">
                   {{ deleteLoading ? "Deleting..." : "Delete" }}
                 </button>
               </div>
