@@ -83,6 +83,11 @@ const handleSubmit = async () => {
           Don't have an account?
           <router-link to="/register">Create Account</router-link>
         </p>
+        <p style="margin-top: 8px;">
+            <router-link to="/login-otp" style="font-size: 0.85rem; color: var(--text-muted); text-decoration: none; opacity: 0.8;">
+                <span class="hover-underline">Lupa Password / Login dengan OTP</span>
+            </router-link>
+        </p>
       </div>
     </div>
   </div>

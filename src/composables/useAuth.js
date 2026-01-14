@@ -178,6 +178,46 @@ export function useAuth() {
         }
     }
 
+    async function loginOtp(username, otp) {
+        isLoading.value = true;
+        error.value = null;
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    otp
+                }),
+                credentials: 'include' // Important for cookies
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Login via OTP failed');
+            }
+
+            // Fetch user profile immediately after login to set state
+            await fetchUser();
+
+            // Redirect based on status (likely to change-password because of flow)
+            if (user.value?.must_change_password) {
+                router.push('/change-password');
+            } else {
+                router.push('/');
+            }
+
+            return true;
+        } catch (err) {
+            error.value = err.message;
+            return false;
+        } finally {
+            isLoading.value = false;
+        }
+    }
+
     return {
         user,
         isAuthenticated,
@@ -188,6 +228,7 @@ export function useAuth() {
         register,
         logout,
         fetchUser,
-        changePassword
+        changePassword,
+        loginOtp
     };
 }

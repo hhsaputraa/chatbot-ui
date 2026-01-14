@@ -9,12 +9,20 @@ import RegisterView from '../views/auth/Register.vue'
 import { useAuth } from '../composables/useAuth'
 
 import ChangePasswordView from '../views/auth/ChangePassword.vue'
+import LoginOtpView from '../views/auth/LoginOtp.vue'
+import OtpGeneratorView from '../views/admin/OtpGenerator.vue'
 
 const routes = [
     {
         path: '/login',
         name: 'Login',
         component: LoginView,
+        meta: { guestOnly: true }
+    },
+    {
+        path: '/login-otp',
+        name: 'LoginOtp',
+        component: LoginOtpView,
         meta: { guestOnly: true }
     },
     {
@@ -57,6 +65,12 @@ const routes = [
         path: '/improve_knowledge',
         name: 'ImproveKnowledge',
         component: ImproveKnowledgeView,
+        meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+        path: '/admin/otp',
+        name: 'OtpGenerator',
+        component: OtpGeneratorView,
         meta: { requiresAuth: true, requiresAdmin: true }
     }
 ]
