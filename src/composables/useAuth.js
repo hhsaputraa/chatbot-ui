@@ -7,8 +7,8 @@ const isLoading = ref(false);
 const error = ref(null);
 
 export function useAuth() {
-    const router = useRouter();
-
+    const router = useRouter(); // Note: This may be undefined if called outside setup/component (e.g. in Router Guard)
+    
     const isAuthenticated = computed(() => !!user.value);
     const isAdmin = computed(() => user.value?.is_admin === true);
 
@@ -40,8 +40,12 @@ export function useAuth() {
             // Fetch user profile immediately after login
             await fetchUser();
 
-            // Redirect handled by component or here
-            router.push('/');
+            // Redirect based on status
+            if (user.value?.must_change_password) {
+                router.push('/change-password');
+            } else {
+                router.push('/');
+            }
 
             return true;
         } catch (err) {
@@ -91,9 +95,50 @@ export function useAuth() {
                 credentials: 'include'
             });
             user.value = null;
-            router.push('/login');
+            if (router) {
+                router.push('/login');
+            }
         } catch (err) {
             console.error('Logout error:', err);
+        } finally {
+            isLoading.value = false;
+        }
+    }
+
+    async function changePassword(oldPassword, newPassword) {
+        isLoading.value = true;
+        error.value = null;
+
+        try {
+             // Encrypt sensitive data
+             const encryptedOldPassword = encryptField(oldPassword);
+             const encryptedNewPassword = encryptField(newPassword);
+
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/change-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    old_password: encryptedOldPassword,
+                    new_password: encryptedNewPassword
+                }),
+                credentials: 'include'
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Change password failed');
+            }
+            
+            // On success, update user state locally to remove flag
+            if (user.value) {
+                user.value.must_change_password = false;
+            }
+
+            return true;
+        } catch (err) {
+            error.value = err.message;
+            return false;
         } finally {
             isLoading.value = false;
         }
@@ -108,7 +153,21 @@ export function useAuth() {
             if (response.ok) {
                 const data = await response.json();
                 if (data.data?.user) {
-                    user.value = data.data.user;
+                    const userProfile = data.data.user;
+                    
+                    // Strict Active Check
+                    if (userProfile.is_active === false) {
+                         // User is inactive, set user to null or handle logout
+                         // We can still call logout() as it hits API, but avoid router.push if router is missing?
+                         // Logout uses router.push('/login').
+                         // Let's rely on the guard seeing !user.value or !isAuthenticated.
+                         // But we want to invalidate the backend session too.
+                         await logout(); 
+                         return;
+                    }
+
+                    user.value = userProfile;
+                    // Removed inline redirect to /change-password. Handled by Router Guard.
                 }
             } else {
                 user.value = null;
@@ -128,6 +187,7 @@ export function useAuth() {
         login,
         register,
         logout,
-        fetchUser
+        fetchUser,
+        changePassword
     };
 }

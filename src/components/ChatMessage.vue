@@ -67,6 +67,7 @@
           :message-index="messageIndex"
           :rows="message.data.rows"
           :columns="message.data.columns"
+          variant="chat"
         />
       </template>
 

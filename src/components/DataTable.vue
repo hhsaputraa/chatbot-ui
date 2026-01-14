@@ -162,6 +162,11 @@ const props = defineProps({
     required: false,
     default: false,
   },
+  variant: {
+    type: String,
+    default: "default", // 'default' | 'chat'
+    validator: (value) => ["default", "chat"].includes(value),
+  },
 });
 
 const emit = defineEmits(["edit-row", "delete-row"]);
@@ -304,13 +309,25 @@ function initColumnWidths() {
   if (!props.columns || props.columns.length === 0) return;
   props.columns.forEach((col) => {
     if (!columnWidths[col]) {
-      // Set reasonable defaults based on column name
-      if (col === 'id') columnWidths[col] = 80; // Increased from 60
-      else if (col === 'action') columnWidths[col] = 180;
-      else if (col === 'category') columnWidths[col] = 200; // New specific default
-      else if (col.includes('prompt')) columnWidths[col] = 300; // Wider prompt
-      else if (col.includes('content') || col.includes('sql') || col.includes('query')) columnWidths[col] = 500; // Much wider for content
-      else columnWidths[col] = 250; // Increased general default
+      if (props.variant === "chat") {
+        // Compact defaults for Chat interface
+        if (col === "id") columnWidths[col] = 50;
+        else if (col === "action") columnWidths[col] = 80;
+        else columnWidths[col] = 200; // Reasonable width for chat bubble
+      } else {
+        // Large defaults for Dashboard (Improve pages)
+        if (col === "id") columnWidths[col] = 80;
+        else if (col === "action") columnWidths[col] = 180;
+        else if (col === "category") columnWidths[col] = 200;
+        else if (col.includes("prompt")) columnWidths[col] = 300;
+        else if (
+          col.includes("content") ||
+          col.includes("sql") ||
+          col.includes("query")
+        )
+          columnWidths[col] = 500;
+        else columnWidths[col] = 250;
+      }
     }
   });
 }

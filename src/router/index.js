@@ -8,6 +8,8 @@ import LoginView from '../views/auth/Login.vue'
 import RegisterView from '../views/auth/Register.vue'
 import { useAuth } from '../composables/useAuth'
 
+import ChangePasswordView from '../views/auth/ChangePassword.vue'
+
 const routes = [
     {
         path: '/login',
@@ -20,6 +22,12 @@ const routes = [
         name: 'Register',
         component: RegisterView,
         meta: { guestOnly: true }
+    },
+    {
+        path: '/change-password',
+        name: 'ChangePassword',
+        component: ChangePasswordView,
+        meta: { requiresAuth: true }
     },
     {
         path: '/',
@@ -71,6 +79,14 @@ router.beforeEach(async (to, from, next) => {
         next('/login');
     } else if (to.meta.guestOnly && isAuthenticated.value) {
         next('/');
+    } else if (isAuthenticated.value && user.value?.must_change_password && to.path !== '/change-password' && to.path !== '/login') {
+        // Enforce password change if flag is set, allowing only login (for logout) or change-password
+        next('/change-password');
+    } else if (isAuthenticated.value && !user.value?.must_change_password && to.path === '/change-password') {
+        // Optional: prevent accessing change-password if not required? 
+        // For now, let's allow it so users can change it voluntarily if we add a link later.
+        // But if strict "Force Change" flow, user usually doesn't go there unless forced.
+        next();
     } else if (to.meta.requiresAdmin && !isAdmin.value) {
         // Redirect non-admins to home if they try to access admin routes
         next('/');
