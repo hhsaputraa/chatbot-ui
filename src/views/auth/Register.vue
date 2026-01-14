@@ -100,20 +100,20 @@ const handleSubmit = async () => {
   <div class="auth-container">
     <div class="auth-card">
       <div class="auth-header">
-        <h2 class="auth-title">Create Account</h2>
-        <p class="auth-subtitle">Get started with your intelligent assistant</p>
+        <h2 class="auth-title">Register</h2>
+        <p class="auth-subtitle">Buat akun untuk memulai</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="auth-form">
         <!-- Full Name (Full Width) -->
         <div class="form-group span-full">
-          <label>Full Name</label>
+          <label>Nama Lengkap</label>
           <div class="input-wrapper">
             <Icon icon="heroicons:identification" class="input-icon" />
             <input
               v-model="form.fullName"
               type="text"
-              placeholder="Enter your full name"
+              placeholder="Masukan Nama Lengkap"
               required
               :disabled="isLoading"
             />
@@ -128,7 +128,7 @@ const handleSubmit = async () => {
             <input
               v-model="form.username"
               type="text"
-              placeholder="Choose username"
+              placeholder="Masukan Username"
               required
               :disabled="isLoading"
             />
@@ -158,7 +158,7 @@ const handleSubmit = async () => {
             <input
               v-model="form.password"
               :type="showPassword ? 'text' : 'password'"
-              placeholder="Password"
+              placeholder="Masukan Password"
               required
               :disabled="isLoading"
             />
@@ -207,7 +207,7 @@ const handleSubmit = async () => {
             <input
               v-model="form.confirmPassword"
               type="password"
-              placeholder="Confirm"
+              placeholder="Konfirmasi Password"
               required
               :disabled="isLoading"
             />
@@ -231,14 +231,14 @@ const handleSubmit = async () => {
           :disabled="isLoading || !isFormValid"
         >
           <span v-if="isLoading" class="loader"></span>
-          <span v-else>Register</span>
+          <span v-else>Daftar</span>
         </button>
       </form>
 
       <div class="auth-footer">
         <p>
-          Already have an account?
-          <router-link to="/login">Sign in</router-link>
+          Sudah Punya Akun?
+          <router-link to="/login">Login</router-link>
         </p>
       </div>
     </div>

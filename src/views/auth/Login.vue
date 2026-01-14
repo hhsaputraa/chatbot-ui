@@ -22,7 +22,7 @@ const handleSubmit = async () => {
   const success = await login(username.value, password.value);
 
   if (success) {
-    addToast("Login Berhasil! Selamat datang kembali.", "success");
+    addToast("Login Berhasil!", "success");
   } else {
     addToast(authError.value || "Login gagal", "error");
   }
@@ -33,8 +33,8 @@ const handleSubmit = async () => {
   <div class="auth-container">
     <div class="auth-card">
       <div class="auth-header">
-        <h2 class="auth-title">Welcome Back</h2>
-        <p class="auth-subtitle">Login to access your banking assistant</p>
+        <h2 class="auth-title">LOGIN</h2>
+        <p class="auth-subtitle">Login ke assistant AI</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="auth-form">
@@ -46,7 +46,7 @@ const handleSubmit = async () => {
               v-model="username"
               type="text"
               id="username"
-              placeholder="Enter your username"
+              placeholder="Masukan Username"
               required
               :disabled="isLoading"
             />
@@ -61,7 +61,7 @@ const handleSubmit = async () => {
               v-model="password"
               type="password"
               id="password"
-              placeholder="Enter your password"
+              placeholder="Masukan Password"
               required
               :disabled="isLoading"
             />
@@ -74,7 +74,7 @@ const handleSubmit = async () => {
           :disabled="isLoading || !isFormValid"
         >
           <span v-if="isLoading" class="loader"></span>
-          <span v-else>Sign In</span>
+          <span v-else>Login</span>
         </button>
       </form>
 

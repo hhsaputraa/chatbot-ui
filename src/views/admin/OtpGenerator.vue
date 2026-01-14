@@ -58,7 +58,7 @@
           
           <template #cell-action="{ row }">
             <button @click="openOtpModal(row)" class="action-btn">
-              <Icon icon="solar:key-square-bold" />
+              
               Generate OTP
             </button>
           </template>
