@@ -12,7 +12,7 @@ export function useAuth() {
     const isAuthenticated = computed(() => !!user.value);
     const isAdmin = computed(() => user.value?.is_admin === true);
 
-    async function login(username, password) {
+    async function login(username, password, shouldRedirect = true) {
         isLoading.value = true;
         error.value = null;
 
@@ -41,10 +41,12 @@ export function useAuth() {
             await fetchUser();
 
             // Redirect based on status
-            if (user.value?.must_change_password) {
-                router.push('/change-password');
-            } else {
-                router.push('/');
+            if (shouldRedirect) {
+                if (user.value?.must_change_password) {
+                    router.push('/change-password');
+                } else {
+                    router.push('/');
+                }
             }
 
             return true;

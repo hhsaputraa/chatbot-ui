@@ -77,7 +77,7 @@ const handleSubmit = async () => {
   const success = await loginOtp(username.value, otp.value);
 
   if (success) {
-    addToast("Login OTP Berhasil!", "success");
+    addToast("Berhasil!, mengalihkan ke halaman ganti password", "success");
     // Redirect logic handled inside useAuth.loginOtp
   } else {
     addToast(authError.value || "Login OTP gagal", "error");

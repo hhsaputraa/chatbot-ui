@@ -196,6 +196,14 @@ function navigateTo(path) {
           </svg>
         </button>
         <div class="header-content">
+          <button
+            v-if="isAdmin"
+            @click="navigateTo('/admin/otp')"
+            class="admin-nav-btn"
+          >
+            
+            User Management
+          </button>
           <UserDropdown />
         </div>
       </header>
@@ -336,5 +344,30 @@ function navigateTo(path) {
 .chat-history {
   flex-grow: 1;
   overflow-y: auto;
+}
+
+.admin-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  padding: 6px 12px;
+  border-radius: 8px;
+  margin-right: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-nav-btn:hover {
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.admin-nav-btn svg {
+  width: 18px;
+  height: 18px;
 }
 </style>
