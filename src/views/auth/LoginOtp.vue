@@ -2,7 +2,7 @@
   <div class="auth-container">
     <div class="auth-card">
       <div class="auth-header">
-        <h2 class="auth-title">Login via OTP</h2>
+        <h2 class="auth-title">LUPA PASSWORD</h2>
         <p class="auth-subtitle">Masukkan kode OTP yang diberikan Admin</p>
       </div>
 
@@ -50,7 +50,7 @@
       <div class="auth-footer">
         <p>
           Kembali ke
-          <router-link to="/login">Login Biasa</router-link>
+          <router-link to="/login">Login</router-link>
         </p>
       </div>
     </div>

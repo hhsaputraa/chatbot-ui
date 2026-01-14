@@ -39,6 +39,27 @@ export function useAdmin() {
     }
   }
 
+  const getUsers = async () => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch users');
+      const data = await response.json();
+      return data.data || [];
+    } catch (err) {
+      error.value = err.message;
+      showToast(err.message, 'error');
+      return [];
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   const retrainSystem = async () => {
     // Reset state
     isLoading.value = true
@@ -150,6 +171,7 @@ export function useAdmin() {
     progressLogs,
     progressPercentage,
     error,
-    retrainSystem
+    retrainSystem,
+    getUsers
   }
 }

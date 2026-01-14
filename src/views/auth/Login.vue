@@ -80,12 +80,11 @@ const handleSubmit = async () => {
 
       <div class="auth-footer">
         <p>
-          Don't have an account?
-          <router-link to="/register">Create Account</router-link>
+          <router-link to="/register">Buat Akun</router-link>
         </p>
         <p style="margin-top: 8px;">
             <router-link to="/login-otp" style="font-size: 0.85rem; color: var(--text-muted); text-decoration: none; opacity: 0.8;">
-                <span class="hover-underline">Lupa Password / Login dengan OTP</span>
+                <span class="hover-underline">Lupa Password</span>
             </router-link>
         </p>
       </div>

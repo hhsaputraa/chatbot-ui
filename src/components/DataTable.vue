@@ -51,37 +51,39 @@
               :title="formatCell(cellValue, columns[cIndex])"
               :style="{ maxWidth: getColumnWidth(columns[cIndex]) }"
             >
-              <!-- Display sequential number for id column while keeping actual id in data -->
-              <template v-if="columns[cIndex] === 'id'">
-                <span
-                  v-if="
-                    paginatedRows[rIndex] && paginatedRows[rIndex][0] !== ''
-                  "
-                  >{{ (currentPage - 1) * rowsPerPage + rIndex + 1 }}</span
-                >
-              </template>
+              <slot :name="`cell-${columns[cIndex]}`" :cell="cellValue" :row="rowArray" :index="rIndex">
+                  <!-- Display sequential number for id column while keeping actual id in data -->
+                  <template v-if="columns[cIndex] === 'id'">
+                    <span
+                      v-if="
+                        paginatedRows[rIndex] && paginatedRows[rIndex][0] !== ''
+                      "
+                      >{{ (currentPage - 1) * rowsPerPage + rIndex + 1 }}</span
+                    >
+                  </template>
 
-              <!-- Action buttons only for real rows (have id) -->
-              <template v-else-if="columns[cIndex] === 'action'">
-                <template v-if="rowArray && rowArray[0]">
-                  <button
-                    class="action-btn edit"
-                    @click.stop="emitEdit(rowArray)"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    class="action-btn delete"
-                    @click.stop="emitDelete(rowArray)"
-                  >
-                    Delete
-                  </button>
-                </template>
-              </template>
+                  <!-- Action buttons only for real rows (have id) -->
+                  <template v-else-if="columns[cIndex] === 'action'">
+                    <template v-if="rowArray && rowArray[0]">
+                      <button
+                        class="action-btn edit"
+                        @click.stop="emitEdit(rowArray)"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        class="action-btn delete"
+                        @click.stop="emitDelete(rowArray)"
+                      >
+                        Delete
+                      </button>
+                    </template>
+                  </template>
 
-              <template v-else>
-                {{ formatCell(cellValue, columns[cIndex]) }}
-              </template>
+                  <template v-else>
+                    {{ formatCell(cellValue, columns[cIndex]) }}
+                  </template>
+              </slot>
             </td>
           </tr>
         </tbody>
@@ -316,7 +318,7 @@ function initColumnWidths() {
         else columnWidths[col] = 200; // Reasonable width for chat bubble
       } else {
         // Large defaults for Dashboard (Improve pages)
-        if (col === "id") columnWidths[col] = 80;
+        if (col === "id" || col === "id_app_users") columnWidths[col] = 80;
         else if (col === "action") columnWidths[col] = 180;
         else if (col === "category") columnWidths[col] = 200;
         else if (col.includes("prompt")) columnWidths[col] = 300;
