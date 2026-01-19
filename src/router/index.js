@@ -6,7 +6,7 @@ import ImproveQueryView from '../views/ImproveQuery/index.vue'
 import ImproveKnowledgeView from '../views/ImproveKnowledge/index.vue'
 import LoginView from '../views/auth/Login.vue'
 import RegisterView from '../views/auth/Register.vue'
-import { useAuth } from '../composables/useAuth'
+import { useAuth, ACCOUNT_STATUS } from '../composables/useAuth'
 
 import ChangePasswordView from '../views/auth/ChangePassword.vue'
 import LoginOtpView from '../views/auth/LoginOtp.vue'
@@ -93,17 +93,24 @@ router.beforeEach(async (to, from, next) => {
         next('/login');
     } else if (to.meta.guestOnly && isAuthenticated.value) {
         next('/');
-    } else if (isAuthenticated.value && user.value?.must_change_password && to.path !== '/change-password' && to.path !== '/login') {
-        // Enforce password change if flag is set, allowing only login (for logout) or change-password
-        next('/change-password');
-    } else if (isAuthenticated.value && !user.value?.must_change_password && to.path === '/change-password') {
-        // Optional: prevent accessing change-password if not required? 
-        // For now, let's allow it so users can change it voluntarily if we add a link later.
-        // But if strict "Force Change" flow, user usually doesn't go there unless forced.
+    } else if (isAuthenticated.value) {
+        const status = user.value?.account_status;
+        
+        // Enforce Password Change for PENDING(1) or FORGOT(2)
+        // Allow logout (which usually redirects to login) or API calls
+        // But for route navigation:
+        if ((status === ACCOUNT_STATUS.PENDING_SETUP || status === ACCOUNT_STATUS.FORGOT_PASSWORD) && to.path !== '/change-password') {
+             next('/change-password');
+             return;
+        }
+
+        // Admin Check
+        if (to.meta.requiresAdmin && !isAdmin.value) {
+            next('/');
+            return;
+        }
+
         next();
-    } else if (to.meta.requiresAdmin && !isAdmin.value) {
-        // Redirect non-admins to home if they try to access admin routes
-        next('/');
     } else {
         next();
     }

@@ -30,6 +30,9 @@ export function getFriendlyErrorMessage(errorData) {
     case ERROR_CODES.QUERY_EXECUTION_FAILED:
       return `Query tidak dapat dieksekusi. ${message || "Silakan perbaiki pertanyaan Anda."}`;
 
+    case ERROR_CODES.AI_REFUSAL:
+      return message;
+
     default:
       return message || "Terjadi kesalahan yang tidak diketahui. Silakan coba lagi.";
   }

@@ -50,6 +50,12 @@
           :rows="users" 
           :loading="isLoading"
         >
+          <template #cell-account_status="{ cell }">
+             <span :class="['status-badge', getStatusBadge(cell).class]">
+              {{ getStatusBadge(cell).label }}
+            </span>
+          </template>
+
           <template #cell-is_active="{ cell }">
             <span :class="['status-badge', cell ? 'active' : 'inactive']">
               {{ cell ? 'Active' : 'Inactive' }}
@@ -180,7 +186,7 @@ const { login, user } = useAuth();
 const { addToast } = useToast();
 
 const users = ref([]);
-const columns = ['id_app_users', 'username', 'full_name', 'email', 'is_active', 'action'];
+const columns = ['id_app_users', 'username', 'full_name', 'email', 'account_status', 'is_active', 'action'];
 
 const showModal = ref(false);
 const selectedUser = ref(null);
@@ -223,6 +229,7 @@ const fetchUsers = async () => {
     u.username,
     u.full_name,
     u.email,
+    u.account_status,
     u.is_active,
     '' 
   ]);
@@ -237,6 +244,16 @@ const openOtpModal = (row) => {
   generatedOtp.value = null;  
   showModal.value = true;
   copied.value = false;
+};
+
+const getStatusBadge = (status) => {
+    switch(status) {
+        case 0: return { label: 'Active', class: 'active' };
+        case 1: return { label: 'Pending', class: 'pending' };
+        case 2: return { label: 'Reset', class: 'reset' };
+        case 3: return { label: 'Blocked', class: 'blocked' };
+        default: return { label: 'Unknown', class: 'inactive' };
+    }
 };
 
 const closeModal = () => {
@@ -429,6 +446,9 @@ onMounted(() => {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 }
+.status-badge.pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.status-badge.reset { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.status-badge.blocked { background: rgba(239, 68, 68, 0.2); color: #ef4444; text-decoration: line-through; }
 
 .action-btn {
   background: rgba(245, 158, 11, 0.1);

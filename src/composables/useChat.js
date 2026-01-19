@@ -16,6 +16,9 @@ export function useChat() {
   const enhanceCooldown = ref(0);
   let cooldownInterval = null;
 
+  // Model selection
+  const selectedModel = ref("qwen/qwen3-32b");
+
   const { initPagination } = useTablePagination();
 
   function startNewChat() {
@@ -83,7 +86,10 @@ export function useChat() {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.QUERY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: currentMessage }),
+        body: JSON.stringify({ 
+          prompt: currentMessage,
+          model: selectedModel.value
+        }),
       });
 
       let data;
@@ -172,6 +178,7 @@ export function useChat() {
     isLoading,
     isEnhancing,
     enhanceCooldown,
+    selectedModel,
     startNewChat,
     handleSubmit,
     handleEnhance,

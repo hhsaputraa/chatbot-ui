@@ -26,6 +26,7 @@ const {
   isLoading,
   isEnhancing,
   enhanceCooldown,
+  selectedModel,
   startNewChat,
   handleSubmit,
   handleEnhance,
@@ -101,9 +102,18 @@ function navigateTo(path) {
         </button>
       </div>
 
-      <!-- Improve Query Button - Bottom of Sidebar -->
-      <div v-if="isAdmin && isSidebarOpen" class="sidebar-footer">
-        <button class="improve-query-btn" @click="openImproveModal">
+      <!-- Sidebar Footer (Model Selector & Improve AI) -->
+      <div v-if="isSidebarOpen" class="sidebar-footer">
+        <div class="sidebar-model-selector">
+          <label class="model-label">AI Model</label>
+          <select v-model="selectedModel" class="sidebar-select" :disabled="isLoading">
+            <option value="qwen/qwen3-32b">Qwen 32B</option>
+            <option value="openai/gpt-oss-120b">GPT OSS 120B</option>
+            <option value="openai/gpt-oss-20b">GPT OSS 20B</option>
+          </select>
+        </div>
+
+        <button v-if="isAdmin" class="improve-query-btn" @click="openImproveModal">
           <svg
             class="icon"
             fill="none"
@@ -262,6 +272,8 @@ function navigateTo(path) {
         </div>
       </div>
 
+
+
       <!-- Chat Input Form -->
       <form class="chat-input-form" @submit.prevent="handleSubmit">
         <input
@@ -369,5 +381,50 @@ function navigateTo(path) {
 .admin-nav-btn svg {
   width: 18px;
   height: 18px;
+}
+
+/* Sidebar Model Selector */
+.sidebar-model-selector {
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.model-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  margin-left: 2px;
+  font-weight: 500;
+}
+
+.sidebar-select {
+  width: 100%;
+  background-color: var(--input-bg);
+  color: var(--text-light);
+  border: 1px solid var(--border-color);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  appearance: none; /* Custom arrow could be added, but default is fine for now */
+  transition: all 0.2s;
+}
+
+.sidebar-select:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+
+.sidebar-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Improve button adjustment */
+.improve-query-btn {
+  /* Ensure it matches the full width if not already */
+  width: 100%;
 }
 </style>

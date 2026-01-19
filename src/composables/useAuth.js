@@ -6,6 +6,13 @@ const user = ref(null);
 const isLoading = ref(false);
 const error = ref(null);
 
+export const ACCOUNT_STATUS = {
+    PERFECT: 0,
+    PENDING_SETUP: 1,
+    FORGOT_PASSWORD: 2,
+    BLOCKED: 3
+};
+
 export function useAuth() {
     const router = useRouter(); // Note: This may be undefined if called outside setup/component (e.g. in Router Guard)
     
@@ -34,15 +41,33 @@ export function useAuth() {
             const data = await response.json();
 
             if (!response.ok) {
+                // Handle 401 for BLOCKED user if returned by backend
                 throw new Error(data.message || 'Login failed');
             }
 
-            // Fetch user profile immediately after login
+            // Fetch user profile immediately after login to get account_status
             await fetchUser();
+            
+            const status = user.value?.account_status;
+
+            // STATUS CHECK LOGIC
+            // 2 = FORGOT_PASSWORD -> Must use OTP. Block standard login.
+            if (status === ACCOUNT_STATUS.FORGOT_PASSWORD) {
+                await logout();
+                throw new Error("Akun dalam proses Reset. Silahkan login melalui menu 'Lupa Password'.");
+            }
+            
+            // 3 = BLOCKED (Defense in depth, though backend should 401)
+            if (status === ACCOUNT_STATUS.BLOCKED) {
+                await logout();
+                throw new Error("Akun anda diblokir. Silahkan hubungi administrator.");
+            }
 
             // Redirect based on status
+            // 0 = PERFECT -> Dashboard
+            // 1 = PENDING_SETUP -> Change Password
             if (shouldRedirect) {
-                if (user.value?.must_change_password) {
+                if (status === ACCOUNT_STATUS.PENDING_SETUP) {
                     router.push('/change-password');
                 } else {
                     router.push('/');
@@ -132,9 +157,9 @@ export function useAuth() {
                 throw new Error(data.message || 'Change password failed');
             }
             
-            // On success, update user state locally to remove flag
+            // On success, backend sets status to PERFECT (0). Update local state.
             if (user.value) {
-                user.value.must_change_password = false;
+                user.value.account_status = ACCOUNT_STATUS.PERFECT;
             }
 
             return true;
@@ -157,19 +182,13 @@ export function useAuth() {
                 if (data.data?.user) {
                     const userProfile = data.data.user;
                     
-                    // Strict Active Check
-                    if (userProfile.is_active === false) {
-                         // User is inactive, set user to null or handle logout
-                         // We can still call logout() as it hits API, but avoid router.push if router is missing?
-                         // Logout uses router.push('/login').
-                         // Let's rely on the guard seeing !user.value or !isAuthenticated.
-                         // But we want to invalidate the backend session too.
+                    // Defense: Check if backend says blocked but still returned user
+                    if (userProfile.account_status === ACCOUNT_STATUS.BLOCKED) {
                          await logout(); 
                          return;
                     }
 
                     user.value = userProfile;
-                    // Removed inline redirect to /change-password. Handled by Router Guard.
                 }
             } else {
                 user.value = null;
@@ -201,11 +220,14 @@ export function useAuth() {
                 throw new Error(data.message || 'Login via OTP failed');
             }
 
-            // Fetch user profile immediately after login to set state
+            // Fetch user profile
             await fetchUser();
+            
+            const status = user.value?.account_status;
 
-            // Redirect based on status (likely to change-password because of flow)
-            if (user.value?.must_change_password) {
+            // Redirect logic
+            // 1 (PENDING) or 2 (FORGOT) -> Change Password
+            if (status === ACCOUNT_STATUS.PENDING_SETUP || status === ACCOUNT_STATUS.FORGOT_PASSWORD) {
                 router.push('/change-password');
             } else {
                 router.push('/');
