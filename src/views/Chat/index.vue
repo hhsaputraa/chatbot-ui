@@ -5,6 +5,7 @@ import { useAuth } from "../../composables/useAuth";
 import { useChat } from "../../composables/useChat";
 import ChatMessage from "../../components/ChatMessage.vue";
 import UserDropdown from "../../components/UserDropdown.vue";
+import ModelSelector from "../../components/ModelSelector.vue";
 
 const router = useRouter();
 const { logout, isAdmin } = useAuth();
@@ -105,12 +106,7 @@ function navigateTo(path) {
       <!-- Sidebar Footer (Model Selector & Improve AI) -->
       <div v-if="isSidebarOpen" class="sidebar-footer">
         <div class="sidebar-model-selector">
-          <label class="model-label">AI Model</label>
-          <select v-model="selectedModel" class="sidebar-select" :disabled="isLoading">
-            <option value="qwen/qwen3-32b">Qwen 32B</option>
-            <option value="openai/gpt-oss-120b">GPT OSS 120B</option>
-            <option value="openai/gpt-oss-20b">GPT OSS 20B</option>
-          </select>
+          <ModelSelector v-model="selectedModel" :disabled="isLoading" />
         </div>
 
         <button v-if="isAdmin" class="improve-query-btn" @click="openImproveModal">
@@ -389,38 +385,9 @@ function navigateTo(path) {
   width: 100%;
 }
 
-.model-label {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-  margin-left: 2px;
-  font-weight: 500;
-}
 
-.sidebar-select {
-  width: 100%;
-  background-color: var(--input-bg);
-  color: var(--text-light);
-  border: 1px solid var(--border-color);
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  outline: none;
-  cursor: pointer;
-  appearance: none; /* Custom arrow could be added, but default is fine for now */
-  transition: all 0.2s;
-}
 
-.sidebar-select:focus {
-  border-color: var(--primary-blue);
-  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
-}
 
-.sidebar-select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 /* Improve button adjustment */
 .improve-query-btn {
