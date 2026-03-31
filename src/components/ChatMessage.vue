@@ -6,7 +6,7 @@
     </div>
 
     <!-- Message Content -->
-    <div class="message-content">
+    <div :class="['message-content', { 'insight-content-override': message.type === 'insight' }]">
       <!-- Text Message -->
       <template v-if="message.type === 'text'">
         {{ message.content }}
@@ -87,6 +87,13 @@
           </div>
         </div>
       </template>
+
+      <!-- Insight Message -->
+      <template v-else-if="message.type === 'insight'">
+        <div class="insight-view">
+          <div class="insight-body" v-html="formatMarkdown(message.content)"></div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -113,6 +120,13 @@ const showDetails = ref(false);
 
 const toggleDetails = () => {
   showDetails.value = !showDetails.value;
+};
+
+const formatMarkdown = (text) => {
+  if (!text) return "";
+  let formatted = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  formatted = formatted.replace(/\*(.*?)\*/g, "<em>$1</em>");
+  return formatted;
 };
 </script>
 
@@ -174,6 +188,32 @@ const toggleDetails = () => {
 .message-block.bot .message-content {
   background-color: var(--bubble-bot-bg);
   border: 1px solid var(--border-color);
+}
+
+.message-block.bot .insight-content-override {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  max-width: 100%;
+  padding: 0;
+  margin-top: 8px;
+}
+
+.insight-view {
+  padding: 8px 4px;
+  color: #e2e8f0;
+}
+
+.insight-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+}
+
+.insight-body :deep(strong) {
+  color: #90cdf4; /* Warna tebal yang sedikit biru muda (tailwind blue-300) agar natural namun rapi */
+  font-weight: 600;
 }
 
 /* Error Card Redesign */

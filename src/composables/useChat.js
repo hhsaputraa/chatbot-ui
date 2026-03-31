@@ -98,43 +98,63 @@ export function useChat() {
          const decoder = new TextDecoder("utf-8");
          let insightMessageRef = null;
          let buffer = "";
+         
+         let typingQueue = "";
+         let isTyping = false;
+         const typeNextChar = () => {
+             if (typingQueue.length > 0 && insightMessageRef) {
+                 // Ambil bbrp karakter sekaligus jika antrean panjang agar tidak terlalu lambat
+                 const charsToType = typingQueue.length > 50 ? 3 : 1; 
+                 insightMessageRef.content += typingQueue.substring(0, charsToType);
+                 typingQueue = typingQueue.substring(charsToType);
+                 setTimeout(typeNextChar, 10); // Jeda 10ms per loop iterasi huruf
+             } else {
+                 isTyping = false;
+             }
+         };
 
          while (true) {
             const { value, done } = await reader.read();
-            if (done) break;
             
-            buffer += decoder.decode(value, { stream: true });
-            let boundary = buffer.indexOf('\n\n');
-            
-            while (boundary !== -1) {
-                const eventStr = buffer.slice(0, boundary).trim();
-                buffer = buffer.slice(boundary + 2);
-                
-                if (eventStr.startsWith('data: ')) {
-                    const dataStr = eventStr.slice(6).trim();
-                    if (dataStr === '[DONE]') {
-                        boundary = buffer.indexOf('\n\n');
-                        continue;
-                    }
-                    
-                    try {
-                        const parsed = JSON.parse(dataStr);
-                        if (parsed.type === 'data') {
-                            processResponse({ status: 'success', data: parsed.data });
-                        } else if (parsed.type === 'text') {
-                            if (!insightMessageRef) {
-                                const newMsg = { role: "bot", type: "text", content: "" };
-                                messages.value.push(newMsg);
-                                insightMessageRef = messages.value[messages.value.length - 1];
-                            }
-                            insightMessageRef.content += parsed.content;
-                        }
-                    } catch (e) {
-                        console.error("Error parsing SSE chunk:", e);
-                    }
-                }
-                boundary = buffer.indexOf('\n\n');
+            if (value) {
+               buffer += decoder.decode(value, { stream: true });
+               let boundary = buffer.indexOf('\n\n');
+               
+               while (boundary !== -1) {
+                   const eventStr = buffer.slice(0, boundary).trim();
+                   buffer = buffer.slice(boundary + 2);
+                   
+                   if (eventStr.startsWith('data: ')) {
+                       const dataStr = eventStr.slice(6).trim();
+                       if (dataStr === '[DONE]') {
+                           boundary = buffer.indexOf('\n\n');
+                           continue;
+                       }
+                       
+                       try {
+                           const parsed = JSON.parse(dataStr);
+                           if (parsed.type === 'data') {
+                               processResponse({ status: 'success', data: parsed.data });
+                           } else if (parsed.type === 'text') {
+                               if (!insightMessageRef) {
+                                   const newMsg = { role: "bot", type: "insight", content: "" };
+                                   messages.value.push(newMsg);
+                                   insightMessageRef = messages.value[messages.value.length - 1];
+                               }
+                               typingQueue += parsed.content;
+                               if (!isTyping) {
+                                   isTyping = true;
+                                   typeNextChar();
+                               }
+                           }
+                       } catch (e) {
+                           console.error("Error parsing SSE chunk:", e);
+                       }
+                   }
+                   boundary = buffer.indexOf('\n\n');
+               }
             }
+            if (done) break;
          }
       } else {
          let data;

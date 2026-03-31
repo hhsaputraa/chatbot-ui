@@ -276,7 +276,7 @@ function navigateTo(path) {
           ref="chatInputRef"
           class="chat-input"
           type="text"
-          placeholder="silahkan masukan kebutuhan.."
+          placeholder="Minta AI untuk membantu anda"
           v-model="userInput"
           :disabled="isLoading || isEnhancing"
           autocomplete="off"
