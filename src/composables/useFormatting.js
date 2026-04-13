@@ -53,14 +53,11 @@ export function useFormatting() {
    * Format a cell value based on its column type
    * @param {any} value - Cell value
    * @param {string} colName - Column name
+   * @param {boolean} isRupiahFormatEnabled - Whether to force all numbers to Rupiah
    * @returns {string} - Formatted value
    */
-  function formatCell(value, colName) {
+  function formatCell(value, colName, isRupiahFormatEnabled = false) {
     const type = getColumnType(colName)
-
-    if (type === "currency") {
-      return formatter.format(parseFloat(value) || 0)
-    }
 
     if (type === "datetime") {
       const d = new Date(value)
@@ -68,6 +65,16 @@ export function useFormatting() {
         ? value
         : d.toISOString().split('T')[0]
     }
+
+    if (isRupiahFormatEnabled && colName !== "id" && value !== null && value !== undefined && String(value).trim() !== "" && !isNaN(value)) {
+      return formatter.format(parseFloat(value) || 0)
+    }
+
+    if (type === "currency") {
+      return formatter.format(parseFloat(value) || 0)
+    }
+
+
 
     // type === 'number' or 'text' → display as is
     return value

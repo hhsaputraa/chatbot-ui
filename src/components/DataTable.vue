@@ -5,6 +5,12 @@
       <button @click="exportToCSV" class="export-btn csv">CSV</button>
       <button @click="exportToPDF" class="export-btn pdf">PDF</button>
       <button @click="exportToPDFv2" class="export-btn pdf v2">PDF v2</button>
+      <div class="toggle-container">
+        <label>
+          <input type="checkbox" v-model="formatRupiah" />
+          Format Angka ke Rupiah
+        </label>
+      </div>
     </div>
     <!-- Search Bar -->
     <SearchBar
@@ -48,7 +54,7 @@
             <td
               v-for="(cellValue, cIndex) in rowArray"
               :key="cIndex"
-              :title="formatCell(cellValue, columns[cIndex])"
+              :title="formatCellAdapter(cellValue, columns[cIndex])"
               :style="{ maxWidth: getColumnWidth(columns[cIndex]) }"
             >
               <slot :name="`cell-${columns[cIndex]}`" :cell="cellValue" :row="rowArray" :index="rIndex">
@@ -81,7 +87,7 @@
                   </template>
 
                   <template v-else>
-                    {{ formatCell(cellValue, columns[cIndex]) }}
+                    {{ formatCellAdapter(cellValue, columns[cIndex]) }}
                   </template>
               </slot>
             </td>
@@ -184,6 +190,12 @@ function emitDelete(rowArray) {
 }
 
 const { formatCell, formatHeader } = useFormatting();
+
+const formatRupiah = ref(true);
+
+function formatCellAdapter(value, colName) {
+  return formatCell(value, colName, formatRupiah.value);
+}
 const {
   paginationState,
   searchState,
@@ -241,13 +253,13 @@ const jumpToPageValue = computed(
 );
 
 const filteredCount = computed(() =>
-  getFilteredRowCount(props.messageIndex, props.rows, props.columns, formatCell)
+  getFilteredRowCount(props.messageIndex, props.rows, props.columns, formatCellAdapter)
 );
 
 const totalCount = computed(() => props.rows.length);
 
 const paginatedRows = computed(() =>
-  getPaginatedRows(props.messageIndex, props.rows, props.columns, formatCell)
+  getPaginatedRows(props.messageIndex, props.rows, props.columns, formatCellAdapter)
 );
 
 const paddedRows = computed(() => {
@@ -396,7 +408,7 @@ function autoResize(columnKey) {
   if (colIndex !== -1) {
     rowsToCheck.forEach((row) => {
       const cellValue = row[colIndex];
-      const formatted = formatCell(cellValue, columnKey);
+      const formatted = formatCellAdapter(cellValue, columnKey);
       // Limit check to first 100 chars to avoid perf issues on huge text
       const textToMeasure = formatted ? String(formatted).substring(0, 100) + (String(formatted).length > 100 ? '...' : '') : ''; 
       const w = getTextWidth(textToMeasure, FONT_CELL_MEASURE);
@@ -433,14 +445,14 @@ function getExportPayload() {
     props.messageIndex,
     props.rows,
     props.columns,
-    formatCell
+    formatCellAdapter
   );
 
   const headers = props.columns.map((col) => formatHeader(col));
 
   const body = filteredRows.map((rowArray) => {
     return rowArray.map((cellValue, cIndex) => {
-      return formatCell(cellValue, props.columns[cIndex]);
+      return formatCellAdapter(cellValue, props.columns[cIndex]);
     });
   });
 
@@ -533,6 +545,29 @@ async function exportToPDFv2() {
   font-size: 0.9rem;
   color: var(--text-muted);
   font-weight: 500;
+}
+
+.toggle-container {
+  margin-left: auto; /* Push to the right */
+  display: flex;
+  align-items: center;
+}
+
+.toggle-container label {
+  color: var(--text-light);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-container input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-blue);
 }
 
 .export-btn {
