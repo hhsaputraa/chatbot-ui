@@ -157,7 +157,20 @@ const sqlTextarea = ref(null)
 const editModalRef = ref(null)
 const copySql = async () => {
   try {
-    await navigator.clipboard.writeText(editForm.value.sql_query || "")
+    const textToCopy = editForm.value.sql_query || "";
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(textToCopy);
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = textToCopy;
+      textArea.style.position = "absolute";
+      textArea.style.left = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.select();
+      const successful = document.execCommand("copy");
+      document.body.removeChild(textArea);
+      if (!successful) throw new Error("Fitur copy tidak didukung browser saat ini.");
+    }
     showToast("SQL berhasil disalin!", "success")
   } catch (err) {
     showToast("Gagal menyalin SQL: " + String(err), "error")
@@ -642,7 +655,7 @@ watch(isPolling, (val) => {
               >
                 Load CACHE
               </button>
-              <button
+              <!-- <button
                 @click.prevent="retrainSystem"
                 :disabled="isRetraining"
                 class="switch-btn"
@@ -652,7 +665,7 @@ watch(isPolling, (val) => {
                 <Icon v-else icon="solar:restart-bold" />
                 Reload Data
               </button>
-              <span v-if="loading" class="loading-text">Loading...</span>
+              <span v-if="loading" class="loading-text">Loading...</span> -->
             </div>
 
             <!-- LOG STATUS MODAL -->
@@ -717,6 +730,10 @@ watch(isPolling, (val) => {
             @edit-row="openEditModal"
             @delete-row="openDeleteModal"
           />
+
+          <div class="ai-disclaimer" style="text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-top: 16px; opacity: 0.8;">
+            Informasi: Hasil generasi dibuat oleh AI, wajib dicek kembali kevalidan data.
+          </div>
 
           <!-- Edit Modal -->
           <!-- EDIT CACHE ENTRY MODAL — PREMIUM & KONSISTEN -->

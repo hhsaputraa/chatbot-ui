@@ -318,6 +318,10 @@ function navigateTo(path) {
           </svg>
         </button>
       </form>
+
+      <div class="ai-disclaimer">
+        Hasil generasi dibuat oleh AI, wajib dicek kembali kevalidan data.
+      </div>
     </main>
   </div>
 </template>

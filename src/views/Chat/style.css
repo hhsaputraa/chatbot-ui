@@ -553,3 +553,14 @@
   font-size: 20px;
   cursor: pointer;
 }
+
+.ai-disclaimer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-bottom: 12px;
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  opacity: 0.8;
+}
