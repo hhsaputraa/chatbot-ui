@@ -13,7 +13,7 @@ onMounted(() => {
   messages.value.push({
     role: "bot",
     type: "text",
-    content: "Halo! Saya adalah AI asisten bank. Apa yang ingin Anda ketahui?",
+    content: "Halo! Saya adalah Supra AI Assistant. Apa yang ingin Anda ketahui?",
   })
 })
 

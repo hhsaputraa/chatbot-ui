@@ -34,7 +34,7 @@ const handleSubmit = async () => {
     <div class="auth-card">
       <div class="auth-header">
         <h2 class="auth-title">LOGIN</h2>
-        <p class="auth-subtitle">Login ke assistant AI</p>
+        <p class="auth-subtitle">Login ke Supra AI Assistant</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="auth-form">

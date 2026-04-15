@@ -55,14 +55,15 @@ watch(isLoading, (newVal) => {
 
 // Auto-scroll to best
 watch(
-  () => messages.value.length,
+  () => messages.value,
   () => {
     nextTick(() => {
       if (chatContainer.value) {
         chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
       }
     });
-  }
+  },
+  { deep: true }
 );
 
 function openImproveModal(e) {
