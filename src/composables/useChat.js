@@ -10,6 +10,8 @@ export function useChat() {
   const messages = ref([]);
   const userInput = ref("");
   const isLoading = ref(false);
+  const activeSessionId = ref(null);
+  const uploadedFileName = ref("");
   
   // Enhancement state
   const isEnhancing = ref(false);
@@ -31,6 +33,49 @@ export function useChat() {
   function handleSuggestionClick(text) {
     userInput.value = text;
     handleSubmit();
+  }
+
+  async function uploadFile(file) {
+    if (!file) return;
+    isLoading.value = true;
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_SESSION}`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        activeSessionId.value = data.session_id;
+        uploadedFileName.value = file.name;
+        messages.value.push({
+          role: "bot",
+          type: "text",
+          content: `📂 File "${file.name}" berhasil diunggah! Chatbot sekarang berfokus pada data ini.`
+        });
+      }
+    } catch (error) {
+      console.error("Upload failed", error);
+      messages.value.push({
+        role: "bot",
+        type: "error",
+        content: "Gagal mengunggah file ke server."
+      });
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  function clearSession() {
+    activeSessionId.value = null;
+    uploadedFileName.value = "";
+    messages.value.push({
+      role: "bot",
+      type: "text",
+      content: `🔄 Sesi file ditutup. Chatbot kembali ke mode database biasa.`
+    });
   }
 
   async function handleEnhance() {
@@ -83,13 +128,19 @@ export function useChat() {
     messages.value.push({ role: "user", type: "text", content: currentMessage });
 
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.QUERY}`, {
+      const endpoint = activeSessionId.value ? API_ENDPOINTS.CHAT_SESSION : API_ENDPOINTS.QUERY;
+      const requestBody = activeSessionId.value ? {
+        session_id: activeSessionId.value,
+        message: currentMessage
+      } : { 
+        prompt: currentMessage,
+        model: selectedModel.value
+      };
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          prompt: currentMessage,
-          model: selectedModel.value
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const contentType = response.headers.get("content-type");
@@ -214,7 +265,7 @@ export function useChat() {
     } else {
       messages.value.push({
         role: "bot",
-        type: "text",
+        type: "insight",
         content: data.message || "Perintah berhasil dieksekusi.",
       });
     }
@@ -247,6 +298,10 @@ export function useChat() {
     startNewChat,
     handleSubmit,
     handleEnhance,
-    handleSuggestionClick
+    handleSuggestionClick,
+    activeSessionId,
+    uploadedFileName,
+    uploadFile,
+    clearSession
   };
 }

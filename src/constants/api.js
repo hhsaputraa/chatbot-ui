@@ -1,6 +1,8 @@
 export const API_ENDPOINTS = {
   QUERY: '/api/query',
   ENHANCE: '/api/enhance',
+  UPLOAD_SESSION: '/api/upload-session',
+  CHAT_SESSION: '/api/chat-session',
 };
 
 export const ERROR_CODES = {

@@ -32,7 +32,22 @@ const {
   handleSubmit,
   handleEnhance,
   handleSuggestionClick,
+  activeSessionId,
+  uploadedFileName,
+  uploadFile,
+  clearSession
 } = useChat();
+
+const fileInputRef = ref(null);
+
+function handleFileChange(event) {
+  const file = event.target.files[0];
+  if (file) {
+    uploadFile(file);
+    // Reset file input value so same file can be uploaded again
+    event.target.value = '';
+  }
+}
 
 // Environment variables for UI text only
 const WELCOME_TITLE = import.meta.env.VITE_CHAT_WELCOME_TITLE;
@@ -271,8 +286,33 @@ function navigateTo(path) {
 
 
 
+      <!-- Session File Badge -->
+      <div v-if="activeSessionId" class="session-badge-container">
+        <div class="session-badge">
+          <span class="session-badge-icon">📂</span>
+          <span class="session-badge-text">Fokus Analisis: <strong>{{ uploadedFileName }}</strong></span>
+          <button type="button" class="session-badge-close" @click="clearSession" title="Tutup sesi file">&times;</button>
+        </div>
+      </div>
+
       <!-- Chat Input Form -->
       <form class="chat-input-form" @submit.prevent="handleSubmit">
+        <input
+          ref="fileInputRef"
+          type="file"
+          @change="handleFileChange"
+          accept=".csv,.xlsx,.xls"
+          style="display: none;"
+        />
+        <button
+          type="button"
+          @click="fileInputRef.click()"
+          class="attach-btn"
+          title="Unggah file CSV/Excel"
+          :disabled="isLoading"
+        >
+          📎
+        </button>
         <input
           ref="chatInputRef"
           class="chat-input"
@@ -398,5 +438,60 @@ function navigateTo(path) {
 .improve-query-btn {
   /* Ensure it matches the full width if not already */
   width: 100%;
+}
+
+/* Session and Attachment styles */
+.session-badge-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+  padding: 0 16px;
+}
+
+.session-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+.session-badge-close {
+  background: none;
+  border: none;
+  color: #10b981;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  margin-left: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.session-badge-close:hover {
+  color: #059669;
+}
+
+.attach-btn {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.attach-btn:hover {
+  color: var(--text-color);
 }
 </style>
