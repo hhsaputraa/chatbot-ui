@@ -18,7 +18,7 @@ export function useAdmin() {
   // Helper: Fetch collection count
   const getCollectionCount = async (collectionName) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/qdrant/list?collection=${collectionName}`)
+      const res = await fetch(`${API_BASE_URL}/admin/qdrant/list?collection=${collectionName}`, { credentials: 'include' })
       if (!res.ok) return 0 // Consider empty/error as 0 or rebuilding
       const data = await res.json()
       return Array.isArray(data) ? data.length : 0
@@ -30,7 +30,7 @@ export function useAdmin() {
   // Helper: Get generic count
   const getCount = async (collectionName) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/qdrant/list?collection=${collectionName}`)
+      const res = await fetch(`${API_BASE_URL}/admin/qdrant/list?collection=${collectionName}`, { credentials: 'include' })
       if (!res.ok) return 0
       const data = await res.json()
       return Array.isArray(data) ? data.length : 0
@@ -82,6 +82,7 @@ export function useAdmin() {
       const response = await fetch(`${API_BASE_URL}/admin/retrain`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include'
       })
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)

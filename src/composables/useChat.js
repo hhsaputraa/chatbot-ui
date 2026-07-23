@@ -44,16 +44,23 @@ export function useChat() {
     try {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_SESSION}`, {
         method: 'POST',
-        body: formData
+        body: formData,
+        credentials: 'include'
       });
       const data = await response.json();
-      if (data.status === 'success') {
+      if (response.ok && (data.status === 'success' || data.session_id)) {
         activeSessionId.value = data.session_id;
         uploadedFileName.value = file.name;
         messages.value.push({
           role: "bot",
           type: "text",
           content: `📂 File "${file.name}" berhasil diunggah! Chatbot sekarang berfokus pada data ini.`
+        });
+      } else {
+        messages.value.push({
+          role: "bot",
+          type: "error",
+          content: getFriendlyErrorMessage(data) || data.message || "Gagal mengunggah file ke server."
         });
       }
     } catch (error) {
@@ -90,6 +97,7 @@ export function useChat() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ draft_prompt: originalText }),
+        credentials: "include"
       });
 
       const data = await response.json();
@@ -141,6 +149,7 @@ export function useChat() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
+        credentials: "include"
       });
 
       const contentType = response.headers.get("content-type");

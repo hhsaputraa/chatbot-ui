@@ -290,7 +290,7 @@ function navigateTo(path) {
       <div v-if="activeSessionId" class="session-badge-container">
         <div class="session-badge">
           <span class="session-badge-icon">📂</span>
-          <span class="session-badge-text">Fokus Analisis: <strong>{{ uploadedFileName }}</strong></span>
+          <span class="session-badge-text">Memakai data: <strong>{{ uploadedFileName }}</strong></span>
           <button type="button" class="session-badge-close" @click="clearSession" title="Tutup sesi file">&times;</button>
         </div>
       </div>
