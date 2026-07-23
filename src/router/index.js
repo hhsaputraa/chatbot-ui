@@ -81,11 +81,11 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-    const { isAuthenticated, isAdmin, fetchUser, user } = useAuth();
+    const { isAuthenticated, isAdmin, fetchUser, user, hasCheckedAuth } = useAuth();
 
-    // Attempt to fetch user profile if no user data is present
+    // Attempt to fetch user profile if no user data is present and we haven't checked yet
     // This restores the session on page reload
-    if (!user.value) {
+    if (!user.value && !hasCheckedAuth.value) {
         await fetchUser();
     }
 

@@ -5,6 +5,7 @@ import { encryptField } from '../utils/crypto';
 const user = ref(null);
 const isLoading = ref(false);
 const error = ref(null);
+const hasCheckedAuth = ref(false);
 
 export const ACCOUNT_STATUS = {
     PERFECT: 0,
@@ -122,6 +123,7 @@ export function useAuth() {
                 credentials: 'include'
             });
             user.value = null;
+            hasCheckedAuth.value = false;
             if (router) {
                 router.push('/login');
             }
@@ -196,6 +198,8 @@ export function useAuth() {
         } catch (err) {
             console.log("Check auth failed", err);
             user.value = null;
+        } finally {
+            hasCheckedAuth.value = true;
         }
     }
 
@@ -248,6 +252,7 @@ export function useAuth() {
         isAdmin,
         isLoading,
         error,
+        hasCheckedAuth,
         login,
         register,
         logout,

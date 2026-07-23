@@ -19,7 +19,7 @@ const dropdownRef = ref(null);
 
 const models = [
   {
-    id: 'qwen/qwen3-32b',
+    id: 'qwen/qwen3.6-27b',
     name: 'Qwen 32B',
     description: 'Balanced for general tasks',
     icon: '⚡'

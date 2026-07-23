@@ -17,7 +17,7 @@ export function useChat() {
   let cooldownInterval = null;
 
   // Model selection
-  const selectedModel = ref("qwen/qwen3-32b");
+  const selectedModel = ref("qwen/qwen3.6-27b");
 
   const { initPagination } = useTablePagination();
 
