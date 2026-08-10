@@ -475,7 +475,7 @@ async function saveEdit() {
       }
 
       showEditModal.value = false
-      showToast("✅ Update berhasil disimpan!", "success", 3000)
+      showToast("Update berhasil disimpan!", "success", 3000)
     } catch (err) {
       console.error("Update error", err)
       error.value = String(err)
