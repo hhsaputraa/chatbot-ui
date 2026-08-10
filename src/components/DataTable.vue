@@ -5,12 +5,6 @@
       <button @click="exportToCSV" class="export-btn csv">CSV</button>
       <button @click="exportToPDF" class="export-btn pdf">PDF</button>
       <button @click="exportToPDFv2" class="export-btn pdf v2">PDF v2</button>
-      <div class="toggle-container">
-        <label>
-          <input type="checkbox" v-model="formatRupiah" />
-          Format Angka ke Rupiah
-        </label>
-      </div>
     </div>
     <!-- Search Bar -->
     <SearchBar
@@ -191,10 +185,8 @@ function emitDelete(rowArray) {
 
 const { formatCell, formatHeader } = useFormatting();
 
-const formatRupiah = ref(true);
-
 function formatCellAdapter(value, colName) {
-  return formatCell(value, colName, formatRupiah.value);
+  return formatCell(value, colName);
 }
 const {
   paginationState,

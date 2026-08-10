@@ -1,8 +1,29 @@
-/**
- * Composable for scalable, non-hardcoded data formatting utilities
- * Provides a 4-tier pattern matching classification & runtime value auto-inspection engine
- */
+# Smart Multi-Tier Column Formatting Engine Implementation Plan
 
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Replace hardcoded & toggle-based currency formatting in Vue frontend with a scalable, 4-tier pattern classification & runtime value inspector engine.
+
+**Architecture:** 
+1. `src/composables/useFormatting.js`: Pattern-based column type matcher & runtime value auto-inspector.
+2. `src/components/DataTable.vue`: Remove manual checkbox toggle & integrate smart formatter.
+3. `src/composables/useTablePagination.js`: Remove deprecated boolean formatting flag.
+
+**Tech Stack:** Vue 3, Composition API, JavaScript Intl API, Vite.
+
+---
+
+### Task 1: Refactor `useFormatting.js` Engine
+
+**Files:**
+- Modify: `chatbot-ui/src/composables/useFormatting.js`
+
+**Interfaces:**
+- Produces: `getColumnType(colName, sampleValue)` and `formatCell(value, colName)`
+
+- [ ] **Step 1: Update `useFormatting.js` with regex patterns & value inspector**
+
+```javascript
 export function useFormatting() {
   const rupiahFormatter = new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -16,7 +37,6 @@ export function useFormatting() {
     maximumFractionDigits: 2,
   })
 
-  // Pattern Matchers for Column Classification
   const ID_PATTERN = /^(id|kode|kd|no|ref|idx|nik|kpo|kol|status|tahun|bulan|kodepos|telepon|phone)$/i
   const ID_AFFIX_PATTERN = /^(id_|kode_|kd_|no_|ref_)|(_id|_kode|_kd|_no|_nik|_ref|_pk|_fk)$/i
 
@@ -29,67 +49,48 @@ export function useFormatting() {
   const DATE_PATTERN = /^(tanggal|waktu|date|time|created_at|updated_at|tgl_)/i
   const DATE_AFFIX_PATTERN = /(_date|_tgl|_at|_time)$/i
 
-  /**
-   * Determine column type dynamically using pattern matching and runtime value inspection
-   * @param {string} colName - Column header name
-   * @param {any} value - Sample cell value for fallback inspection
-   * @returns {string} - Column type ('id', 'datetime', 'count', 'currency', or 'text')
-   */
   function getColumnType(colName, value = null) {
-    if (!colName) return "text"
+    if (!colName) return 'text'
     const name = String(colName).trim().toLowerCase()
 
     // 1. Explicit ID / Code Check (NEVER Currency)
     if (ID_PATTERN.test(name) || ID_AFFIX_PATTERN.test(name)) {
-      return "id"
+      return 'id'
     }
 
     // 2. Date / Time Check
     if (DATE_PATTERN.test(name) || DATE_AFFIX_PATTERN.test(name)) {
-      return "datetime"
+      return 'datetime'
     }
 
     // 3. Count / Quantity Check (NEVER Currency)
     if (COUNT_PATTERN.test(name) || COUNT_AFFIX_PATTERN.test(name)) {
-      return "count"
+      return 'count'
     }
 
     // 4. Currency Check
     if (CURRENCY_PATTERN.test(name) || CURRENCY_AFFIX_PATTERN.test(name)) {
-      return "currency"
+      return 'currency'
     }
 
     // 5. Value Auto-Inspection for Ambiguous Columns (e.g. 'februari', 'nilai', 'total')
     if (value !== null && value !== undefined && value !== "") {
-      const strVal = String(value).trim()
-      
-      // Preserve leading zeros or non-numeric codes as ID (e.g. "0012", "KNT-01")
-      if (/^0\d+/.test(strVal) || /[a-zA-Z]/.test(strVal)) {
-        return "id"
-      }
-
-      const num = Number(strVal)
+      const num = Number(value)
       if (!isNaN(num)) {
-        // Small integers (< 100) or Year numbers (1900-2100) -> Count / ID
+        // Year or small integer < 100 -> Count / ID
         if (Number.isInteger(num) && (num < 100 || (num >= 1900 && num <= 2100))) {
-          return "count"
+          return 'count'
         }
-        // Numbers >= 1000 or floating decimals -> Currency
+        // Numbers >= 1000 or decimals -> Currency
         if (num >= 1000 || !Number.isInteger(num)) {
-          return "currency"
+          return 'currency'
         }
       }
     }
 
-    return "text"
+    return 'text'
   }
 
-  /**
-   * Format cell value accurately without hardcoded assumptions
-   * @param {any} value - Cell value
-   * @param {string} colName - Column header name
-   * @returns {string} - Formatted output string
-   */
   function formatCell(value, colName) {
     if (value === null || value === undefined || value === "") {
       return "-"
@@ -99,7 +100,7 @@ export function useFormatting() {
 
     if (type === "datetime") {
       const d = new Date(value)
-      return isNaN(d.getTime()) ? value : d.toISOString().split("T")[0]
+      return isNaN(d.getTime()) ? value : d.toISOString().split('T')[0]
     }
 
     if (type === "id") {
@@ -122,17 +123,12 @@ export function useFormatting() {
     return String(value)
   }
 
-  /**
-   * Format column header for user-friendly display
-   * @param {string} headerKey - Raw column key
-   * @returns {string} - Formatted header title
-   */
   function formatHeader(headerKey) {
     if (!headerKey) return ""
     if (headerKey === "id") return "No."
     return headerKey
       .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .replace(/\b\w/g, c => c.toUpperCase())
   }
 
   return {
@@ -143,3 +139,21 @@ export function useFormatting() {
     formatHeader,
   }
 }
+```
+
+---
+
+### Task 2: Clean Up `DataTable.vue` & `useTablePagination.js`
+
+**Files:**
+- Modify: `chatbot-ui/src/components/DataTable.vue`
+- Modify: `chatbot-ui/src/composables/useTablePagination.js`
+
+- [ ] **Step 1: Remove checkbox toggle & update `formatCellAdapter` in `DataTable.vue`**
+- [ ] **Step 2: Update `useTablePagination.js` signatures**
+
+---
+
+### Task 3: Verification & Build Check
+
+- [ ] **Step 1: Run Vite build check for `chatbot-ui`**
