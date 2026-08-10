@@ -1,5 +1,6 @@
 import { ref } from "vue"
 import { useToast } from "./useToast"
+import { getAuthHeaders } from "./useAuth"
 
 export function useAdmin() {
   const { showToast } = useToast()
@@ -18,7 +19,7 @@ export function useAdmin() {
   // Helper: Fetch collection count
   const getCollectionCount = async (collectionName) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/qdrant/list?collection=${collectionName}`, { credentials: 'include' })
+      const res = await fetch(`${API_BASE_URL}/admin/qdrant/list?collection=${collectionName}`, { headers: getAuthHeaders(), credentials: 'include' })
       if (!res.ok) return 0 // Consider empty/error as 0 or rebuilding
       const data = await res.json()
       return Array.isArray(data) ? data.length : 0
@@ -30,7 +31,7 @@ export function useAdmin() {
   // Helper: Get generic count
   const getCount = async (collectionName) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/qdrant/list?collection=${collectionName}`, { credentials: 'include' })
+      const res = await fetch(`${API_BASE_URL}/admin/qdrant/list?collection=${collectionName}`, { headers: getAuthHeaders(), credentials: 'include' })
       if (!res.ok) return 0
       const data = await res.json()
       return Array.isArray(data) ? data.length : 0
@@ -45,7 +46,7 @@ export function useAdmin() {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/users`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch users');
@@ -81,7 +82,7 @@ export function useAdmin() {
       
       const response = await fetch(`${API_BASE_URL}/admin/retrain`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: 'include'
       })
 

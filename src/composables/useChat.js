@@ -2,6 +2,7 @@ import { ref, nextTick } from 'vue';
 import { API_ENDPOINTS, ERROR_CODES } from '../constants/api';
 import { getFriendlyErrorMessage } from '../utils/errorHandler';
 import { useTablePagination } from './useTablePagination';
+import { getAuthHeaders } from './useAuth';
 
 const START_MESSAGE = import.meta.env.VITE_CHAT_START_MESSAGE;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -44,6 +45,7 @@ export function useChat() {
     try {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_SESSION}`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: formData,
         credentials: 'include'
       });
@@ -95,7 +97,7 @@ export function useChat() {
     try {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.ENHANCE}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ draft_prompt: originalText }),
         credentials: "include"
       });
@@ -147,7 +149,7 @@ export function useChat() {
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(requestBody),
         credentials: "include"
       });

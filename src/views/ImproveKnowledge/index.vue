@@ -174,7 +174,7 @@ async function fetchCollection(collection) {
   activeCollection.value = collection
   try {
     const url = `${API_BASE_URL}/admin/qdrant/list?collection=${collection}`
-    const res = await fetch(url)
+    const res = await fetch(url, { credentials: "include" })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
 
@@ -283,6 +283,7 @@ async function createCacheEntry() {
     const res = await fetch(`${API_BASE_URL}/admin/cache/create`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         prompt: addForm.value.prompt.trim(),
         sql: addForm.value.sql.trim(),
@@ -412,6 +413,7 @@ async function saveEdit() {
       const res = await fetch(`${API_BASE_URL}/admin/qdrant/update`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       })
 
@@ -520,6 +522,7 @@ function confirmDelete() {
     fetch(`${API_BASE_URL}/admin/qdrant/delete`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(payload),
     })
       .then(async res => {

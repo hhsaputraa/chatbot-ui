@@ -1,15 +1,6 @@
 <script setup>
 import { ref } from "vue"
 
-import pdfMake from "pdfmake/build/pdfmake"
-import pdfFonts from "pdfmake/build/vfs_fonts"
-
-if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
-  pdfMake.vfs = pdfFonts.pdfMake.vfs
-} else if (pdfFonts && pdfFonts.vfs) {
-  pdfMake.vfs = pdfFonts.vfs
-}
-
 function getDocumentDefinition() {
   var dd = {
     content: [
@@ -627,16 +618,31 @@ function getDocumentDefinition() {
   return dd
 }
 
+async function loadPdfMake() {
+  const pdfMakeModule = await import("pdfmake/build/pdfmake");
+  const pdfFonts = await import("pdfmake/build/vfs_fonts");
+
+  const pdfMake = pdfMakeModule.default || pdfMakeModule;
+  const fonts = pdfFonts.default || pdfFonts;
+
+  if (fonts && (fonts.pdfMake?.vfs || fonts.vfs)) {
+    pdfMake.vfs = fonts.pdfMake?.vfs || fonts.vfs;
+  }
+  return pdfMake;
+}
+
 // Fungsi View (Buka Tab Baru)
-function viewPdf() {
-  const dd = getDocumentDefinition()
-  pdfMake.createPdf(dd).open()
+async function viewPdf() {
+  const pdfMake = await loadPdfMake();
+  const dd = getDocumentDefinition();
+  pdfMake.createPdf(dd).open();
 }
 
 // Fungsi Download (Langsung Unduh)
-function downloadPdf() {
-  const dd = getDocumentDefinition()
-  pdfMake.createPdf(dd).download("Data_Tabel_Lengkap.pdf")
+async function downloadPdf() {
+  const pdfMake = await loadPdfMake();
+  const dd = getDocumentDefinition();
+  pdfMake.createPdf(dd).download("Data_Tabel_Lengkap.pdf");
 }
 </script>
 

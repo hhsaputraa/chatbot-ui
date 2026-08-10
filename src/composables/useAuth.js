@@ -14,6 +14,15 @@ export const ACCOUNT_STATUS = {
     BLOCKED: 3
 };
 
+export function getAuthHeaders(extraHeaders = {}) {
+    const token = localStorage.getItem('auth_token');
+    const headers = { ...extraHeaders };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
 export function useAuth() {
     const router = useRouter(); // Note: This may be undefined if called outside setup/component (e.g. in Router Guard)
     
@@ -44,6 +53,10 @@ export function useAuth() {
             if (!response.ok) {
                 // Handle 401 for BLOCKED user if returned by backend
                 throw new Error(data.message || 'Login failed');
+            }
+
+            if (data.data?.token) {
+                localStorage.setItem('auth_token', data.data.token);
             }
 
             // Fetch user profile immediately after login to get account_status
@@ -120,17 +133,19 @@ export function useAuth() {
         try {
             await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/logout`, {
                 method: 'POST',
+                headers: getAuthHeaders(),
                 credentials: 'include'
             });
-            user.value = null;
-            hasCheckedAuth.value = false;
-            if (router) {
-                router.push('/login');
-            }
         } catch (err) {
             console.error('Logout error:', err);
         } finally {
+            localStorage.removeItem('auth_token');
+            user.value = null;
+            hasCheckedAuth.value = false;
             isLoading.value = false;
+            if (router) {
+                router.push('/login');
+            }
         }
     }
 
@@ -145,7 +160,7 @@ export function useAuth() {
 
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/change-password`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     old_password: encryptedOldPassword,
                     new_password: encryptedNewPassword
@@ -176,6 +191,7 @@ export function useAuth() {
     async function fetchUser() {
         try {
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/me`, {
+                headers: getAuthHeaders(),
                 credentials: 'include' // Send the auth cookie
             });
 
@@ -222,6 +238,10 @@ export function useAuth() {
 
             if (!response.ok) {
                 throw new Error(data.message || 'Login via OTP failed');
+            }
+
+            if (data.data?.token) {
+                localStorage.setItem('auth_token', data.data.token);
             }
 
             // Fetch user profile

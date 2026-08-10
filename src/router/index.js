@@ -1,16 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import TestingView from '../views/testing/TestingView.vue'
-import ChatView from '../views/Chat/index.vue'
-import PdfTestingView from '../views/PdfTesting/index.vue'
-import ImproveQueryView from '../views/ImproveQuery/index.vue'
-import ImproveKnowledgeView from '../views/ImproveKnowledge/index.vue'
-import LoginView from '../views/auth/Login.vue'
-import RegisterView from '../views/auth/Register.vue'
-import { useAuth, ACCOUNT_STATUS } from '../composables/useAuth'
 
-import ChangePasswordView from '../views/auth/ChangePassword.vue'
-import LoginOtpView from '../views/auth/LoginOtp.vue'
-import OtpGeneratorView from '../views/admin/OtpGenerator.vue'
+const LoginView = () => import('../views/auth/Login.vue')
+const LoginOtpView = () => import('../views/auth/LoginOtp.vue')
+const RegisterView = () => import('../views/auth/Register.vue')
+const ChangePasswordView = () => import('../views/auth/ChangePassword.vue')
+const ChatView = () => import('../views/Chat/index.vue')
+const TestingView = () => import('../views/testing/TestingView.vue')
+const PdfTestingView = () => import('../views/PdfTesting/index.vue')
+const ImproveQueryView = () => import('../views/ImproveQuery/index.vue')
+const ImproveKnowledgeView = () => import('../views/ImproveKnowledge/index.vue')
+const OtpGeneratorView = () => import('../views/admin/OtpGenerator.vue')
+
+import { useAuth, ACCOUNT_STATUS } from '../composables/useAuth'
 
 const routes = [
     {

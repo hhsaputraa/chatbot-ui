@@ -5,95 +5,114 @@
       <div class="avatar-user">👤</div>
     </div>
 
-    <!-- Message Content -->
-    <div :class="['message-content', { 'insight-content-override': message.type === 'insight' }]">
-      <!-- Text Message -->
-      <template v-if="message.type === 'text'">
-        {{ message.content }}
-      </template>
+    <!-- Message Wrapper -->
+    <div class="message-wrapper">
+      <!-- Message Content -->
+      <div :class="['message-content', { 'insight-content-override': message.type === 'insight' }]">
 
-      <!-- Error Message -->
-      <template v-else-if="message.type === 'error'">
-        <div class="error-card">
-          <div class="error-header">
-            <Icon icon="heroicons:exclamation-triangle" class="error-icon" />
-            <span class="error-title">Terjadi Kesalahan</span>
+        <!-- Text Message -->
+        <template v-if="message.type === 'text'">
+          {{ message.content }}
+        </template>
+
+        <!-- Error Message -->
+        <template v-else-if="message.type === 'error'">
+          <div class="error-card">
+            <div class="error-header">
+              <Icon icon="heroicons:exclamation-triangle" class="error-icon" />
+              <span class="error-title">Terjadi Kesalahan</span>
+            </div>
+            <p class="error-message">{{ message.content }}</p>
+
+            <!-- Technical Details (Collapsible) -->
           </div>
-          <p class="error-message">{{ message.content }}</p>
+        </template>
 
-          <!-- Technical Details (Collapsible) -->
-        </div>
-      </template>
-
-      <!-- Dangerous Intent (Security Block) -->
-      <template v-else-if="message.type === 'dangerous'">
-        <div class="dangerous-card">
-          <div class="dangerous-content">
-            <Icon icon="heroicons:shield-exclamation" class="dangerous-icon" />
-            <p class="dangerous-message">{{ message.content }}</p>
+        <!-- Dangerous Intent (Security Block) -->
+        <template v-else-if="message.type === 'dangerous'">
+          <div class="dangerous-card">
+            <div class="dangerous-content">
+              <Icon icon="heroicons:shield-exclamation" class="dangerous-icon" />
+              <p class="dangerous-message">{{ message.content }}</p>
+            </div>
+            <!-- Technical Details (Collapsible) -->
           </div>
-          <!-- Technical Details (Collapsible) -->
-        </div>
-      </template>
+        </template>
 
-      <!-- Warning Message (Conversational Refusal) -->
-      <template v-else-if="message.type === 'warning'">
-        <div class="warning-card">
-          <div class="warning-icon-wrapper">
-            <Icon icon="heroicons:information-circle" class="warning-icon" />
+        <!-- Warning Message (Conversational Refusal) -->
+        <template v-else-if="message.type === 'warning'">
+          <div class="warning-card">
+            <div class="warning-icon-wrapper">
+              <Icon icon="heroicons:information-circle" class="warning-icon" />
+            </div>
+            <p class="warning-message">{{ message.content }}</p>
           </div>
-          <p class="warning-message">{{ message.content }}</p>
-        </div>
-      </template>
+        </template>
 
-      <!-- Data Message (Table) -->
-      <template v-else-if="message.type === 'data'">
-        <!-- No Data -->
-        <div
-          v-if="
-            !message.data ||
-            !message.data.rows ||
-            message.data.rows.length === 0
-          "
-          class="no-data"
+        <!-- Data Message (Table) -->
+        <template v-else-if="message.type === 'data'">
+          <!-- No Data -->
+          <div
+            v-if="
+              !message.data ||
+              !message.data.rows ||
+              message.data.rows.length === 0
+            "
+            class="no-data"
+          >
+            <Icon icon="heroicons:inbox" class="empty-icon" />
+            <p>Tidak ada data ditemukan.</p>
+          </div>
+
+          <!-- Data Table -->
+          <DataTable
+            v-else
+            :message-index="messageIndex"
+            :rows="message.data.rows"
+            :columns="message.data.columns"
+            variant="chat"
+          />
+        </template>
+
+        <!-- Suggestion Message -->
+        <template v-else-if="message.type === 'suggestion'">
+          <div class="suggestion-container">
+            <p class="suggestion-text">{{ message.content }}</p>
+            <div class="suggestion-chips">
+              <button
+                v-for="(item, index) in message.suggestions"
+                :key="index"
+                class="suggestion-chip"
+                @click="$emit('suggestion-click', item)"
+              >
+                {{ item }}
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Insight Message -->
+        <template v-else-if="message.type === 'insight'">
+          <div class="insight-view">
+            <div class="insight-body" v-html="formatMarkdown(message.content)"></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Message Action Bar (OUTSIDE Bubble - Icon Only) -->
+      <div class="message-actions">
+        <button
+          class="copy-btn"
+          @click="copyText"
+          :title="copied ? 'Tersalin!' : 'Salin Teks'"
+          :aria-label="copied ? 'Tersalin!' : 'Salin Teks'"
         >
-          <Icon icon="heroicons:inbox" class="empty-icon" />
-          <p>Tidak ada data ditemukan.</p>
-        </div>
-
-        <!-- Data Table -->
-        <DataTable
-          v-else
-          :message-index="messageIndex"
-          :rows="message.data.rows"
-          :columns="message.data.columns"
-          variant="chat"
-        />
-      </template>
-
-      <!-- Suggestion Message -->
-      <template v-else-if="message.type === 'suggestion'">
-        <div class="suggestion-container">
-          <p class="suggestion-text">{{ message.content }}</p>
-          <div class="suggestion-chips">
-            <button
-              v-for="(item, index) in message.suggestions"
-              :key="index"
-              class="suggestion-chip"
-              @click="$emit('suggestion-click', item)"
-            >
-              {{ item }}
-            </button>
-          </div>
-        </div>
-      </template>
-
-      <!-- Insight Message -->
-      <template v-else-if="message.type === 'insight'">
-        <div class="insight-view">
-          <div class="insight-body" v-html="formatMarkdown(message.content)"></div>
-        </div>
-      </template>
+          <Icon
+            :icon="copied ? 'heroicons:check' : 'heroicons:document-duplicate'"
+            :class="['copy-icon', { copied }]"
+          />
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -105,7 +124,7 @@ import { Icon } from "@iconify/vue";
 
 const emit = defineEmits(["suggestion-click"]);
 
-defineProps({
+const props = defineProps({
   message: {
     type: Object,
     required: true,
@@ -127,6 +146,78 @@ const formatMarkdown = (text) => {
   let formatted = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
   formatted = formatted.replace(/\*(.*?)\*/g, "<em>$1</em>");
   return formatted;
+};
+
+const copied = ref(false);
+let copyTimer = null;
+
+const getCopyableText = () => {
+  if (props.message?.type === "data" && props.message?.data) {
+    const { columns, rows } = props.message.data;
+    if (Array.isArray(columns) && Array.isArray(rows)) {
+      const header = columns.join("\t");
+      const body = rows
+        .map((row) =>
+          columns
+            .map((col) => {
+              const val = row[col];
+              if (val === null || val === undefined) return "";
+              if (typeof val === "object") return JSON.stringify(val);
+              return String(val);
+            })
+            .join("\t")
+        )
+        .join("\n");
+      return `${header}\n${body}`;
+    }
+  }
+  return props.message?.content || "";
+};
+
+const copyText = async () => {
+  const text = getCopyableText();
+  if (!text) return;
+
+  let success = false;
+
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      success = true;
+    } catch (err) {
+      console.warn("navigator.clipboard failed, falling back to execCommand:", err);
+    }
+  }
+
+  if (!success) {
+    try {
+      const activeEl = document.activeElement;
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.top = "0";
+      textarea.style.left = "0";
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      success = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      if (activeEl && typeof activeEl.focus === "function") {
+        activeEl.focus();
+      }
+    } catch (err) {
+      console.error("Fallback execCommand failed:", err);
+    }
+  }
+
+  if (success) {
+    copied.value = true;
+    if (copyTimer) clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => {
+      copied.value = false;
+    }, 2000);
+  }
 };
 </script>
 
@@ -170,9 +261,25 @@ const formatMarkdown = (text) => {
   background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
 }
 
+/* Message Wrapper */
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+}
+
+.message-block.user .message-wrapper {
+  align-items: flex-end;
+}
+
+.message-block.bot .message-wrapper {
+  align-items: flex-start;
+}
+
 /* Message Content */
 .message-content {
-  max-width: 80%;
+  width: fit-content;
+  max-width: 100%;
   padding: 14px 18px;
   border-radius: 12px;
   line-height: 1.5;
@@ -451,5 +558,46 @@ const formatMarkdown = (text) => {
 .slide-fade-leave-to {
   transform: translateY(-10px);
   opacity: 0;
+}
+
+/* Message Actions Bar (OUTSIDE Bubble) */
+.message-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.message-block:hover .message-actions {
+  opacity: 1;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-muted, #a0aec0);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.copy-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.copy-icon.copied {
+  color: #48bb78;
 }
 </style>
