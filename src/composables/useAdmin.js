@@ -3,12 +3,14 @@ import { useToast } from "./useToast"
 import { getAuthHeaders } from "./useAuth"
 
 export function useAdmin() {
-  const { showToast } = useToast()
+  const { addToast } = useToast()
+  const showToast = (msg, type = 'info') => addToast ? addToast(msg, type) : console.log(msg)
   
   // State
   const isLoading = ref(false)
   const isPolling = ref(false)
   const progressLogs = ref([])
+  const progressPercentage = ref(0)
   const error = ref(null)
   
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
@@ -62,24 +64,13 @@ export function useAdmin() {
   }
 
   const retrainSystem = async () => {
-    // Reset state
     isLoading.value = true
     isPolling.value = true
     error.value = null
-    progressLogs.value = []
-    
-    // Default starting target based on heuristic if we trust the user logs ~ 45 items + ~31 = ~75 ??
-    // Actually safer to read current count and use it as target.
-    // If current is 0, default to 100 for safety.
-    let targetCount = await getCollectionCount('bpr_supra_rag')
-    if (targetCount < 20) targetCount = 100 // Fallback minimum for % calc
-    
-    // Initial State
-    progressLogs.value = []
-    
+    progressLogs.value = ["Memulai proses retraining RAG..."]
+    progressPercentage.value = 5
+
     try {
-      // 1. Trigger Async Process
-      
       const response = await fetch(`${API_BASE_URL}/admin/retrain`, {
         method: "POST",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
@@ -87,85 +78,49 @@ export function useAdmin() {
       })
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-      
-      // Mapped Logs based on backend log sample
-      progressLogs.value.push(`Proses retraining RAG dimulai...`)
 
-      // 2. Start Smart Polling
       let attempts = 0
-      const maxAttempts = 60 // 2 mins
-      let previousCount = -1 
-      let stabilityCounter = 0
-      
+      const maxAttempts = 120 // 2 minutes max
       while (attempts < maxAttempts) {
         attempts++
-        await sleep(2000)
-        
-        const count = await getCount('bpr_supra_rag')
-        const percent = Math.min(Math.round((count / targetCount) * 100), 99)
-        progressPercentage.value = percent
-        
-        // Dynamic Log Generation based on State
-        if (count === 0) {
-             // Matching "Collection 'bpr_supra_rag' berhasil dihapus..."
-             if (progressLogs.value.at(-1) !== "Menghapus koleksi lama...") {
-                 progressLogs.value = ["Menghapus koleksi lama...", "Menyiapkan DDL dan Skema..."]
-             }
-        } else if (count > 0 && count < (targetCount * 0.3)) {
-             // Matching "Mulai 'melatih' (meng-embed dan menyimpan)..."
-             progressLogs.value[0] = "Koleksi dihapus."
-             progressLogs.value[1] = "Mengambil data DDL dan Contoh SQL..."
-             progressLogs.value[2] = `Memproses data awal (${count} items)...`
-        } else if (count >= (targetCount * 0.3) && count < targetCount) {
-             // Matching "Embedding Prompt Bersih..."
-             progressLogs.value[2] = "Data DDL & SQL diproses."
-             progressLogs.value[3] = `Embedding Prompt Bersih (${count}/${targetCount})...`
-        }
-        
-        // Emit progress event or just use logs length? User wants 0-100%
-        // We will store percent in a separate ref if needed, or just append to log.
-        // Actually, let's expose specific `progressPercent` ref.
-        
-        if (count > previousCount) {
-            stabilityCounter = 0
-        } else if (count === previousCount && count > 0) {
-            stabilityCounter++
-        }
-        previousCount = count
-        
-        // Progress Logic
-        // We will misuse the 'error' ref to pass percentage signals to UI if we don't want to change signature too much,
-        // OR better: add `progressPercentage` to returned object. 
-        // Since I can't easily change the Destructuring in Vue without editing that too (I will), let's emit special log format OR add new Ref.
-        // Let's add new Ref `progressPercentage`.
-        
-        // Update Logs with "Checking..." is annoying. 
-        
-        // Success: Stable for 6 seconds (3 checks)
-        if (stabilityCounter >= 3 && count > 10) {
-            break
+        await sleep(1200)
+
+        try {
+          const statusRes = await fetch(`${API_BASE_URL}/admin/retrain/status`, {
+            headers: getAuthHeaders(),
+            credentials: 'include'
+          })
+
+          if (statusRes.ok) {
+            const statusData = await statusRes.json()
+            if (typeof statusData.percentage === 'number') {
+              progressPercentage.value = Math.max(progressPercentage.value, statusData.percentage)
+            }
+            if (Array.isArray(statusData.logs) && statusData.logs.length > 0) {
+              progressLogs.value = statusData.logs
+            }
+            if (!statusData.is_training && statusData.percentage >= 100) {
+              break
+            }
+          }
+        } catch (pollErr) {
+          console.warn("Status poll warning:", pollErr)
         }
       }
 
-      progressLogs.value.push("Menyimpan semua vektor ke Qdrant...")
-      await sleep(1000)
+      progressPercentage.value = 100
       progressLogs.value.push("Training selesai! Database Vektor siap.")
-      
-      // Signal 100%
-      return true // Component will handle reload
+      return true
     } catch (err) {
       error.value = err.message
       progressLogs.value.push(`Error: ${err.message}`)
-      showToast(`Failed: ${err.message}`, "error")
+      showToast(`Gagal retraining: ${err.message}`, "error")
       throw err
     } finally {
       isLoading.value = false
-      // isPolling stays true for a moment to show 100%? Handled in UI.
       isPolling.value = false
     }
   }
-
-  const progressPercentage = ref(0)
   
   return {
     isLoading,

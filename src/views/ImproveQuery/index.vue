@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from "vue"
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue"
 import { Icon } from "@iconify/vue"
 import DataTable from "../../components/DataTable.vue"
 import { useAdmin } from "../../composables/useAdmin"
@@ -142,6 +142,38 @@ const rows = ref(placeholderData.value.rows)
 const messageIndex = ref(0)
 
 const { retrainSystem, isLoading: isRetraining, isPolling, progressLogs, progressPercentage } = useAdmin()
+
+const showRawLogs = ref(false)
+
+const retrainSteps = computed(() => {
+  const pct = progressPercentage?.value || 0
+  return [
+    {
+      id: 1,
+      title: "Inisialisasi...",
+      desc: "Proses sinkronisasi dimulai...",
+      status: pct >= 25 ? "completed" : (pct > 0 ? "active" : "active"),
+    },
+    {
+      id: 2,
+      title: "Membaca struktur database",
+      desc: "Data Sedang Diperbarui...",
+      status: pct >= 55 ? "completed" : (pct >= 25 ? "active" : "pending"),
+    },
+    {
+      id: 3,
+      title: "Konversi ke database vector",
+      desc: "Data Sedang Dikonversi...",
+      status: pct >= 85 ? "completed" : (pct >= 55 ? "active" : "pending"),
+    },
+    {
+      id: 4,
+      title: "Menyimpan ke database vector",
+      desc: "Data Sedang Disimpan...",
+      status: pct >= 100 ? "completed" : (pct >= 85 ? "active" : "pending"),
+    },
+  ]
+})
 
 const loading = ref(false)
 const error = ref(null)
@@ -659,55 +691,100 @@ watch(isPolling, (val) => {
               >
                 Load CACHE
               </button>
-              <!-- <button
+              <button
                 @click.prevent="retrainSystem"
-                :disabled="isRetraining"
-                class="switch-btn"
-                title="Reload Data / Retrain System"
+                :disabled="isRetraining || isPolling"
+                class="switch-btn retrain-btn"
+                title="Retrain / Reload RAG System"
               >
-                <Icon v-if="isRetraining || isPolling" icon="svg-spinners:ring-resize" />
+                <Icon v-if="isRetraining || isPolling" icon="svg-spinners:ring-resize" class="icon-spin" />
                 <Icon v-else icon="solar:restart-bold" />
-                Reload Data
+                <span>{{ isRetraining || isPolling ? 'Retraining...' : 'Train RAG' }}</span>
               </button>
-              <span v-if="loading" class="loading-text">Loading...</span> -->
+              <span v-if="loading" class="loading-text">Loading...</span>
             </div>
 
-            <!-- LOG STATUS MODAL -->
+            <!-- RETRAIN PROCESS CHECKLIST MODAL -->
             <teleport to="body">
               <div v-if="isPolling" class="modal-overlay process-modal">
-                <div class="modal-container process-container">
-                  <div class="modal-header">
-                     <h3 class="modal-title">
-                       <Icon icon="solar:server-square-bold" class="icon-spin" />
-                       System Retraining
-                     </h3>
-                  </div>
-                  <div class="modal-body terminal-body">
-                    <!-- Progress Section -->
-                    <div class="progress-section">
-                       <div class="progress-info">
-                         <span class="progress-label">Status: {{ progressPercentage < 100 ? 'Memproses...' : 'Selesai' }}</span>
-                         <span class="progress-percent">{{ progressPercentage }}%</span>
-                       </div>
-                       <div class="progress-bar-track">
-                          <div class="progress-bar-fill" :style="{ width: progressPercentage + '%' }"></div>
-                       </div>
+                <div class="retrain-checklist-card">
+                  <!-- Header -->
+                  <div class="retrain-header">
+                    <div class="header-badge">
+                      <Icon icon="solar:cpu-bold-duotone" class="cpu-icon" />
                     </div>
+                    <div class="header-text">
+                      <h3 class="retrain-title">Sinkronisasi data RAG</h3>
+                      <p class="retrain-subtitle">Sistem sedang mengekstrak skema database dan memperbarui vektor AI</p>
+                    </div>
+                  </div>
 
-                    <!-- Compact Logs -->
-                    <div class="terminal-window compact">
-                      <div v-for="(log, index) in progressLogs" :key="index" class="log-line">
+                  <!-- Progress Bar & Percentage -->
+                  <div class="retrain-progress-box">
+                    <div class="progress-info-row">
+                      <span class="progress-status-label">
+                        <Icon v-if="progressPercentage < 100" icon="svg-spinners:ring-resize" class="spin-icon" />
+                        <Icon v-else icon="solar:check-circle-bold" class="check-icon" />
+                        {{ progressPercentage < 100 ? 'Memproses Data...' : 'Pelatihan Selesai!' }}
+                      </span>
+                      <span class="progress-percent-val">{{ progressPercentage }}%</span>
+                    </div>
+                    <div class="progress-track">
+                      <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
+                    </div>
+                  </div>
+
+                  <!-- Bullet Point Process Checklist -->
+                  <div class="retrain-steps-list">
+                    <div
+                      v-for="step in retrainSteps"
+                      :key="step.id"
+                      :class="['step-item', step.status]"
+                    >
+                      <div class="step-indicator">
+                        <Icon
+                          v-if="step.status === 'completed'"
+                          icon="solar:check-circle-bold"
+                          class="step-icon done"
+                        />
+                        <Icon
+                          v-else-if="step.status === 'active'"
+                          icon="svg-spinners:ring-resize"
+                          class="step-icon active"
+                        />
+                        <div v-else class="step-icon pending-dot"></div>
+                      </div>
+
+                      <div class="step-content">
+                        <div class="step-header">
+                          <span class="step-title">{{ step.title }}</span>
+                          <span :class="['step-badge', step.status]">
+                            {{ step.status === 'completed' ? 'Selesai' : (step.status === 'active' ? 'Diproses' : 'Menunggu') }}
+                          </span>
+                        </div>
+                        <p class="step-desc">{{ step.desc }}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Footer & Optional Technical Logs -->
+                  <div class="retrain-footer">
+                    <button @click="showRawLogs = !showRawLogs" class="toggle-logs-btn">
+                      <Icon :icon="showRawLogs ? 'solar:alt-arrow-up-linear' : 'solar:alt-arrow-down-linear'" />
+                      {{ showRawLogs ? 'Sembunyikan Log' : 'Tampilkan Log' }}
+                    </button>
+
+                    <div v-if="showRawLogs" class="raw-logs-terminal">
+                      <div v-for="(log, idx) in progressLogs" :key="idx" class="log-line">
                         <span class="log-arrow">></span> {{ log }}
                       </div>
-                      <div class="typing-indicator" v-if="progressPercentage < 100">
-                        <span>_</span>
-                      </div>
                     </div>
-                  </div>
-                  <div class="modal-footer">
-                    <p class="info-text">Mohon jangan tutup halaman ini sampai proses selesai (100%).</p>
-                    <p v-if="progressPercentage >= 100" class="success-hint">
-                        <Icon icon="svg-spinners:ring-resize" /> Refreshing page...
+
+                    <p v-if="progressPercentage >= 100" class="auto-refresh-text">
+                      <Icon icon="svg-spinners:ring-resize" /> Menyegarkan halaman secara otomatis...
+                    </p>
+                    <p v-else class="warning-footer-text">
+                      Mohon jangan menutup halaman ini selama pelatihan berlangsung.
                     </p>
                   </div>
                 </div>
