@@ -68,17 +68,19 @@ watch(isLoading, (newVal) => {
   }
 });
 
-// Auto-scroll to best
+// Smooth Auto-scroll (Optimized: Watch message count & active streaming content)
 watch(
-  () => messages.value,
+  () => [
+    messages.value.length,
+    messages.value[messages.value.length - 1]?.content
+  ],
   () => {
     nextTick(() => {
       if (chatContainer.value) {
         chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
       }
     });
-  },
-  { deep: true }
+  }
 );
 
 function openImproveModal(e) {
@@ -268,7 +270,7 @@ function navigateTo(path) {
           <!-- Chat Messages -->
           <ChatMessage
             v-for="(message, index) in messages"
-            :key="index"
+            :key="message.id || index"
             :message="message"
             :message-index="index"
             :style="{ animationDelay: `${index * 0.05}s` }"
