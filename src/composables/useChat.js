@@ -83,7 +83,7 @@ export function useChat() {
     messages.value.push({
       role: "bot",
       type: "text",
-      content: `🔄 Sesi file ditutup. Chatbot kembali ke mode database biasa.`
+      content: `Sesi file ditutup. Chatbot kembali ke mode database`
     });
   }
 
