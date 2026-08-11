@@ -586,7 +586,11 @@
   font-family: "JetBrains Mono", monospace;
   font-size: 0.95rem;
   resize: vertical;
-  transition: all 0.2s;
+  min-height: 52px;
+  max-height: 380px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .input-textarea:focus {
@@ -1358,4 +1362,35 @@
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* Inline Loading Pill & Tab Spinner */
+.controls-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.switch-btn .tab-spin {
+  font-size: 0.9rem;
+  color: #60a5fa;
+}
+
+.inline-loading-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 999px;
+  color: #60a5fa;
+  font-size: 0.8rem;
+  font-weight: 600;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.inline-loading-pill .pill-spin {
+  font-size: 0.92rem;
+  color: #3b82f6;
 }

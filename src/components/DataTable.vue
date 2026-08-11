@@ -17,6 +17,13 @@
 
     <!-- Table -->
     <div class="table-wrapper">
+      <div v-if="loading" class="table-centered-loading-overlay">
+        <div class="centered-loading-pill">
+          <Icon icon="svg-spinners:ring-resize" class="pill-spin" />
+          <span>Memuat {{ resetKey === 'bpr_supra_rag' ? 'RAG Vektor' : 'Data Cache' }}...</span>
+        </div>
+      </div>
+
       <table class="data-table" :style="{ width: totalTableWidth + 'px' }">
         <thead>
           <tr>
@@ -39,7 +46,21 @@
             </th>
           </tr>
         </thead>
-        <tbody>
+
+        <!-- Table Skeleton Loader Body -->
+        <tbody v-if="loading">
+          <tr v-for="n in 6" :key="n" class="skeleton-row">
+            <td v-for="(colKey, cIdx) in columns" :key="cIdx">
+              <div
+                class="skeleton-shimmer"
+                :style="{ width: cIdx === 0 ? '36px' : (cIdx === columns.length - 1 ? '72px' : (cIdx === 1 ? '55%' : '85%')) }"
+              ></div>
+            </td>
+          </tr>
+        </tbody>
+
+        <!-- Real Data Body -->
+        <tbody v-else>
           <tr
             v-for="(rowArray, rIndex) in paddedRows"
             :key="rowKey(rowArray, rIndex)"
@@ -175,6 +196,10 @@ const props = defineProps({
   resetKey: {
     type: String,
     default: "",
+  },
+  loading: {
+    type: Boolean,
+    default: false,
   },
   variant: {
     type: String,
@@ -521,6 +546,7 @@ async function exportToPDFv2() {
 
 /* Table Wrapper */
 .table-wrapper {
+  position: relative;
   /* Enable both horizontal and vertical scrolling */
   overflow-x: auto;
   overflow-y: auto;
@@ -532,6 +558,53 @@ async function exportToPDFv2() {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   /* Smooth scrolling */
   scroll-behavior: smooth;
+}
+
+/* Centered Floating Loading Badge Pill */
+.table-centered-loading-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 99;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.centered-loading-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  border-radius: 999px;
+  color: #93c5fd;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(59, 130, 246, 0.25);
+  animation: pulseCenteredPill 2s infinite ease-in-out;
+}
+
+.centered-loading-pill .pill-spin {
+  font-size: 1.15rem;
+  color: #60a5fa;
+}
+
+@keyframes pulseCenteredPill {
+  0%, 100% {
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 18px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7), 0 0 28px rgba(59, 130, 246, 0.4);
+  }
 }
 
 .export-controls {
@@ -841,6 +914,38 @@ async function exportToPDFv2() {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* Skeleton Table Loader */
+.skeleton-row {
+  height: 48px;
+}
+
+.skeleton-row td {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+.skeleton-shimmer {
+  height: 16px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Responsive Design */

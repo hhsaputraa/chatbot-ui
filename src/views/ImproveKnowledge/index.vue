@@ -593,6 +593,25 @@ function confirmDelete() {
     showDeleteModal.value = false
   }
 }
+const promptAsliTextarea = ref(null)
+
+const autoResizeTextarea = (e) => {
+  const target = e?.target || e
+  if (!target || !target.style) return
+  target.style.height = "auto"
+  const newHeight = Math.min(Math.max(target.scrollHeight, 54), 380)
+  target.style.height = `${newHeight}px`
+}
+
+const resizeModalTextareas = () => {
+  nextTick(() => {
+    const promptEl = promptAsliTextarea.value?.$el || promptAsliTextarea.value
+    const sqlEl = sqlTextarea.value?.$el || sqlTextarea.value
+    if (promptEl) autoResizeTextarea(promptEl)
+    if (sqlEl) autoResizeTextarea(sqlEl)
+  })
+}
+
 watch(showAddModal, async val => {
   if (val) {
     addForm.value = { prompt: "", sql: "" }
@@ -603,6 +622,7 @@ watch(showAddModal, async val => {
 watch(showEditModal, async val => {
   if (val) {
     await nextTick()
+    resizeModalTextareas()
     sqlTextarea.value?.$el?.focus?.() || sqlTextarea.value?.focus?.()
     const len = editForm.value.sql_query?.length || 0
     sqlTextarea.value?.$el?.setSelectionRange?.(len, len)
@@ -683,7 +703,8 @@ watch(isPolling, async (val) => {
                 :class="{ active: activeCollection === 'bpr_supra_rag' }"
                 class="switch-btn"
               >
-                Load RAG
+                <Icon v-if="loading && activeCollection === 'bpr_supra_rag'" icon="svg-spinners:ring-resize" class="tab-spin" />
+                <span>Load RAG</span>
               </button>
               <button
                 :disabled="loading || activeCollection === 'bpr_supra_cache'"
@@ -691,9 +712,9 @@ watch(isPolling, async (val) => {
                 :class="{ active: activeCollection === 'bpr_supra_cache' }"
                 class="switch-btn"
               >
-                Load CACHE
+                <Icon v-if="loading && activeCollection === 'bpr_supra_cache'" icon="svg-spinners:ring-resize" class="tab-spin" />
+                <span>Load CACHE</span>
               </button>
-              <span v-if="loading" class="loading-text">Loading...</span>
             </div>
 
             <!-- RETRAIN PROCESS CHECKLIST MODAL -->
@@ -827,6 +848,7 @@ watch(isPolling, async (val) => {
             :rows="rows"
             :columns="columns"
             :reset-key="activeCollection"
+            :loading="loading"
             :keep-height="true"
             @edit-row="openEditModal"
             @delete-row="openDeleteModal"
@@ -866,9 +888,11 @@ watch(isPolling, async (val) => {
                     <label>Prompt Asli</label>
                     <textarea
                       v-model="editForm.prompt_asli"
-                      rows="4"
+                      rows="1"
                       class="input-textarea"
                       placeholder="Prompt dalam bahasa natural..."
+                      ref="promptAsliTextarea"
+                      @input="autoResizeTextarea"
                     ></textarea>
                   </div>
 
@@ -877,10 +901,11 @@ watch(isPolling, async (val) => {
                     <label>SQL Query</label>
                     <textarea
                       v-model="editForm.sql_query"
-                      rows="10"
+                      rows="1"
                       class="input-textarea sql-input"
                       placeholder="SELECT ... FROM ..."
                       ref="sqlTextarea"
+                      @input="autoResizeTextarea"
                     ></textarea>
                     <div class="action-bar">
                       <button
@@ -985,9 +1010,10 @@ watch(isPolling, async (val) => {
                     <textarea
                       id="prompt"
                       v-model="addForm.prompt"
-                      rows="4"
+                      rows="1"
                       placeholder="Contoh: tampilkan 10 nasabah dengan saldo terbesar"
                       class="input-textarea"
+                      @input="autoResizeTextarea"
                       required
                     ></textarea>
                   </div>
@@ -997,9 +1023,10 @@ watch(isPolling, async (val) => {
                     <textarea
                       id="sql"
                       v-model="addForm.sql"
-                      rows="8"
+                      rows="1"
                       placeholder="SELECT nama_lengkap, saldo FROM bpr_supra_nasabah ORDER BY saldo DESC LIMIT 10;"
                       class="input-textarea sql-input"
+                      @input="autoResizeTextarea"
                       required
                     ></textarea>
                     <small class="hint">
