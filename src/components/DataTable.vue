@@ -65,18 +65,25 @@
                   <!-- Action buttons only for real rows (have id) -->
                   <template v-else-if="columns[cIndex] === 'action'">
                     <template v-if="rowArray && rowArray[0]">
-                      <button
-                        class="action-btn edit"
-                        @click.stop="emitEdit(rowArray)"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        class="action-btn delete"
-                        @click.stop="emitDelete(rowArray)"
-                      >
-                        Delete
-                      </button>
+                      <div class="table-actions-wrapper">
+                        <button
+                          v-if="resetKey !== 'bpr_supra_rag'"
+                          class="action-icon-btn edit-btn"
+                          @click.stop="emitEdit(rowArray)"
+                          title="Edit"
+                        >
+                          <Icon icon="solar:pen-bold" />
+                          <span class="action-tooltip">Edit</span>
+                        </button>
+                        <button
+                          class="action-icon-btn delete-btn"
+                          @click.stop="emitDelete(rowArray)"
+                          title="Hapus"
+                        >
+                          <Icon icon="solar:trash-bin-trash-bold" />
+                          <span class="action-tooltip">Hapus</span>
+                        </button>
+                      </div>
                     </template>
                   </template>
 
@@ -128,6 +135,7 @@
 
 <script setup>
 import { computed, onMounted, watch, ref, reactive, onUnmounted } from "vue";
+import { Icon } from "@iconify/vue";
 import SearchBar from "./SearchBar.vue";
 import PaginationControls from "./PaginationControls.vue";
 import { useFormatting } from "../composables/useFormatting";
@@ -163,6 +171,10 @@ const props = defineProps({
     type: Boolean,
     required: false,
     default: false,
+  },
+  resetKey: {
+    type: String,
+    default: "",
   },
   variant: {
     type: String,
@@ -684,6 +696,8 @@ async function exportToPDFv2() {
 .data-table th:last-child,
 .data-table td:last-child {
   border-right: none;
+  overflow: visible !important;
+  position: relative;
 }
 
 .data-table th {
@@ -696,9 +710,14 @@ async function exportToPDFv2() {
   border-bottom: 2px solid var(--border-color); /* Thicker bottom border for header */
 }
 
+.data-table tbody tr {
+  position: relative;
+}
+
 .data-table tbody tr:hover {
   background-color: rgba(255, 255, 255, 0.05);
   cursor: default;
+  z-index: 50;
 }
 
 /* Specific column width adjustments can go here if needed */
@@ -741,21 +760,87 @@ async function exportToPDFv2() {
   margin-bottom: 12px;
 }
 
-.action-btn {
-  padding: 6px 8px;
-  margin-right: 6px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--input-bg);
-  color: var(--text-light);
+.table-actions-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: visible !important;
+}
+
+.action-icon-btn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 1rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: visible !important;
 }
-.action-btn.edit:hover {
-  background: rgba(56, 161, 105, 0.12);
+
+.action-icon-btn.edit-btn:hover {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #60a5fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
-.action-btn.delete:hover {
-  background: rgba(229, 62, 62, 0.12);
+
+.action-icon-btn.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #f87171;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+/* Premium Frontmost Floating Tooltip */
+.action-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px) scale(0.92);
+  background: #0f172a;
+  color: #ffffff;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 0 12px rgba(0, 0, 0, 0.4);
+  z-index: 99999 !important;
+}
+
+/* Tooltip Bottom Arrow */
+.action-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #0f172a transparent transparent transparent;
+}
+
+.action-icon-btn:hover .action-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0) scale(1);
 }
 
 /* Responsive Design */

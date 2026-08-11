@@ -236,12 +236,13 @@ async function fetchCollection(collection) {
     rawData.value = data
 
     if (collection === "bpr_supra_rag") {
-      columns.value = ["id", "category", "prompt_preview", "content"]
+      columns.value = ["id", "category", "prompt_preview", "content", "action"]
       rows.value = data.map(item => [
         item.id,
         item.payload?.category ?? "",
         item.payload?.prompt_preview ?? "",
         item.payload?.content ?? "",
+        "",
       ])
     } else if (collection === "bpr_supra_cache") {
       columns.value = ["id", "prompt_asli", "sql_query", "action"]
@@ -705,16 +706,6 @@ watch(isPolling, async (val) => {
               >
                 Load CACHE
               </button>
-              <button
-                @click.prevent="retrainSystem"
-                :disabled="isRetraining || isPolling"
-                class="switch-btn retrain-btn"
-                title="Retrain / Reload RAG System"
-              >
-                <Icon v-if="isRetraining || isPolling" icon="svg-spinners:ring-resize" class="icon-spin" />
-                <Icon v-else icon="solar:restart-bold" />
-                <span>{{ isRetraining || isPolling ? 'Retraining...' : 'Train RAG' }}</span>
-              </button>
               <span v-if="loading" class="loading-text">Loading...</span>
             </div>
 
@@ -812,21 +803,36 @@ watch(isPolling, async (val) => {
                   <div class="refresh-content-box">
                     <Icon icon="svg-spinners:ring-resize" class="refresh-spinner" />
                     <h3 class="refresh-title">Menyiapkan Data Terbaru...</h3>
-                    <p class="refresh-subtitle">Sistem sedang memperbarui tabel data RAG</p>
+                    <p class="refresh-subtitle">Mohon menunggu</p>
                   </div>
                 </div>
               </transition>
             </teleport>
 
-            <button
-              v-if="activeCollection === 'bpr_supra_cache'"
-              @click.prevent="openAddModal"
-              :disabled="addLoading"
-              class="add-item-btn"
-            >
-              <Icon icon="solar:add-circle-bold" class="add-icon" />
-              Add Item
-            </button>
+            <!-- Controls Right -->
+            <div class="controls-right">
+              <button
+                v-if="activeCollection === 'bpr_supra_rag'"
+                @click.prevent="retrainSystem"
+                :disabled="isRetraining || isPolling"
+                class="train-rag-btn-primary"
+                title="Latih Ulang / Sinkronisasi RAG System"
+              >
+                <Icon v-if="isRetraining || isPolling" icon="svg-spinners:ring-resize" class="icon-spin" />
+                <Icon v-else icon="solar:bolt-bold" class="restart-icon" />
+                <span>{{ isRetraining || isPolling ? 'Retraining...' : 'Train RAG' }}</span>
+              </button>
+
+              <button
+                v-if="activeCollection === 'bpr_supra_cache'"
+                @click.prevent="openAddModal"
+                :disabled="addLoading"
+                class="add-item-btn"
+              >
+                <Icon icon="solar:add-circle-bold" class="add-icon" />
+                Add Item
+              </button>
+            </div>
           </div>
 
           <DataTable
@@ -860,7 +866,6 @@ watch(isPolling, async (val) => {
               >
                 <div class="modal-header">
                   <h2 class="modal-title">
-                    <Icon icon="solar:pen-bold" class="title-icon edit" />
                     Edit Cache Entry
                   </h2>
                   <button
@@ -980,7 +985,6 @@ watch(isPolling, async (val) => {
               >
                 <div class="modal-header">
                   <h2 class="modal-title">
-                    <Icon icon="solar:add-circle-bold" class="title-icon" />
                     Tambah Cache Query Baru
                   </h2>
                   <button
@@ -1006,7 +1010,7 @@ watch(isPolling, async (val) => {
                   </div>
 
                   <div class="form-group">
-                    <label for="sql">SQL Query (Hasil Terjemahan)</label>
+                    <label for="sql">SQL Query</label>
                     <textarea
                       id="sql"
                       v-model="addForm.sql"
