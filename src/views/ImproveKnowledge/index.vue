@@ -146,30 +146,35 @@ const showRawLogs = ref(false)
 
 const retrainSteps = computed(() => {
   const pct = progressPercentage?.value || 0
+  const isStep1Done = pct >= 25
+  const isStep2Done = pct >= 55
+  const isStep3Done = pct >= 85
+  const isStep4Done = pct >= 100
+
   return [
     {
       id: 1,
-      title: "Inisialisasi & Reset Koleksi",
-      desc: "Menyiapkan ruang vektor dan mereset cache lama",
-      status: pct >= 25 ? "completed" : (pct > 0 ? "active" : "active"),
+      title: "Inisialisasi...",
+      desc: isStep1Done ? "Proses sinkronisasi selesai." : "Proses sinkronisasi dimulai...",
+      status: isStep1Done ? "completed" : "active",
     },
     {
       id: 2,
-      title: "Ekstraksi Skema & Relasi DB",
-      desc: "Membaca tabel, kolom, DDL, dan kamus bisnis Oracle DB",
-      status: pct >= 55 ? "completed" : (pct >= 25 ? "active" : "pending"),
+      title: "Membaca struktur database",
+      desc: isStep2Done ? "Data selesai diperbarui." : "Data Sedang Diperbarui...",
+      status: isStep2Done ? "completed" : (pct >= 25 ? "active" : "pending"),
     },
     {
       id: 3,
-      title: "Generasi Embedding Vektor (Google AI)",
-      desc: "Mengonversi pola query dan metadata ke vektor 768-dimensi",
-      status: pct >= 85 ? "completed" : (pct >= 55 ? "active" : "pending"),
+      title: "Konversi ke database vector",
+      desc: isStep3Done ? "Data selesai dikonversi." : "Data Sedang Dikonversi...",
+      status: isStep3Done ? "completed" : (pct >= 55 ? "active" : "pending"),
     },
     {
       id: 4,
-      title: "Indexing & Memuat In-Memory Cache",
-      desc: "Menyimpan ke Qdrant Cloud dan memperbarui RAM cache",
-      status: pct >= 100 ? "completed" : (pct >= 85 ? "active" : "pending"),
+      title: "Menyimpan ke database vector",
+      desc: isStep4Done ? "Data selesai disimpan." : "Data Sedang Disimpan...",
+      status: isStep4Done ? "completed" : (pct >= 85 ? "active" : "pending"),
     },
   ]
 })
@@ -603,6 +608,24 @@ watch(showEditModal, async val => {
     sqlTextarea.value?.setSelectionRange?.(len, len)
   }
 })
+
+const isRefreshing = ref(false)
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+watch(isPolling, async (val) => {
+  if (!val && progressPercentage.value >= 100) {
+     isRefreshing.value = true
+     await sleep(400)
+     try {
+       await fetchCollection(activeCollection.value)
+     } catch (e) {
+       console.error("Refresh error:", e)
+     } finally {
+       await sleep(600)
+       isRefreshing.value = false
+     }
+  }
+})
 </script>
 
 <template>
@@ -767,6 +790,19 @@ watch(showEditModal, async val => {
                   </div>
                 </div>
               </div>
+            </teleport>
+
+            <!-- SMOOTH REFRESH LOADING OVERLAY -->
+            <teleport to="body">
+              <transition name="fade">
+                <div v-if="isRefreshing" class="fullpage-refresh-overlay">
+                  <div class="refresh-content-box">
+                    <Icon icon="svg-spinners:ring-resize" class="refresh-spinner" />
+                    <h3 class="refresh-title">Menyiapkan Data Terbaru...</h3>
+                    <p class="refresh-subtitle">Sistem sedang memperbarui tabel data RAG</p>
+                  </div>
+                </div>
+              </transition>
             </teleport>
 
             <button
