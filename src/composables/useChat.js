@@ -1,4 +1,4 @@
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, onUnmounted } from 'vue';
 import { API_ENDPOINTS, ERROR_CODES } from '../constants/api';
 import { getFriendlyErrorMessage } from '../utils/errorHandler';
 import { useTablePagination } from './useTablePagination';
@@ -18,6 +18,14 @@ export function useChat() {
   const isEnhancing = ref(false);
   const enhanceCooldown = ref(0);
   let cooldownInterval = null;
+
+  onUnmounted(() => {
+    if (cooldownInterval) {
+      clearInterval(cooldownInterval);
+      cooldownInterval = null;
+    }
+  });
+
 
   // Model selection
   const selectedModel = ref("qwen/qwen3.6-27b");

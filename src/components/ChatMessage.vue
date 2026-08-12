@@ -94,7 +94,7 @@
         <!-- Insight Message -->
         <template v-else-if="message.type === 'insight'">
           <div class="insight-view">
-            <div class="insight-body" v-html="formatMarkdown(message.content)"></div>
+            <div class="insight-body" v-html="formattedInsight"></div>
           </div>
         </template>
       </div>
@@ -118,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import DataTable from "./DataTable.vue";
 import { Icon } from "@iconify/vue";
 
@@ -147,6 +147,9 @@ const formatMarkdown = (text) => {
   formatted = formatted.replace(/\*(.*?)\*/g, "<em>$1</em>");
   return formatted;
 };
+
+const formattedInsight = computed(() => formatMarkdown(props.message?.content || ""));
+
 
 const copied = ref(false);
 let copyTimer = null;

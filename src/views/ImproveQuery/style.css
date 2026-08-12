@@ -333,32 +333,8 @@
   border-radius: 6px;
 }
 
-/* Toasts */
-.toast-container {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 99999;
-}
-.toast {
-  padding: 10px 14px;
-  border-radius: 8px;
-  color: #fff;
-  min-width: 200px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-  font-weight: 600;
-}
-.toast.success {
-  background: #22c55e;
-}
-.toast.error {
-  background: #ef4444;
-}
-
 .controls-left {
+
   display: flex;
   align-items: center;
   gap: 10px;
