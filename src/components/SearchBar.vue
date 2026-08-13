@@ -1,45 +1,21 @@
 <template>
   <div class="search-container">
     <div class="search-input-wrapper">
-      <svg
-        class="search-icon"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-        />
-      </svg>
+      <Icon icon="solar:magnifer-linear" class="search-icon" />
       <input
         type="text"
         class="search-input"
         placeholder="Cari..."
         :value="searchQuery"
-        @input="$emit('update:searchQuery', $event.target.value)"
+        @input="handleInput"
       />
       <button
         v-if="searchQuery && searchQuery.length > 0"
         class="clear-search-btn"
-        @click="$emit('clear')"
+        @click="handleClear"
         title="Clear search"
       >
-        <svg
-          class="clear-icon"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
+        <Icon icon="solar:close-circle-bold" class="clear-icon" />
       </button>
     </div>
     <div class="search-results-info">
@@ -51,6 +27,9 @@
 </template>
 
 <script setup>
+import { Icon } from "@iconify/vue"
+import { onBeforeUnmount } from "vue"
+
 defineProps({
   searchQuery: {
     type: String,
@@ -66,8 +45,29 @@ defineProps({
   },
 })
 
-defineEmits(["update:searchQuery", "clear"])
+const emit = defineEmits(["update:searchQuery", "clear"])
+
+let debounceTimer = null
+
+function handleInput(event) {
+  const value = event.target.value
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    emit("update:searchQuery", value)
+  }, 150)
+}
+
+function handleClear() {
+  clearTimeout(debounceTimer)
+  emit("clear")
+}
+
+onBeforeUnmount(() => {
+  clearTimeout(debounceTimer)
+})
 </script>
+
+
 
 <style scoped>
 /* Search Container */

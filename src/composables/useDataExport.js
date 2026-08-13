@@ -1,6 +1,3 @@
-import { jsPDF } from "jspdf";
-import "jspdf-autotable";
-
 /**
  * Composable for handling Data Table Exports
  */
@@ -39,9 +36,13 @@ export function useDataExport() {
    */
   async function exportToPDF({ headers, body }, filename = "export_data.pdf") {
     try {
+      const { jsPDF } = await import("jspdf");
+      await import("jspdf-autotable");
+
       const doc = new jsPDF({
         orientation: "landscape",
       });
+
 
       const tableOptions = {
         head: [headers],

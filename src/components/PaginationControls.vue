@@ -24,19 +24,7 @@
         :disabled="currentPage <= 1"
         @click="$emit('goToPage', currentPage - 1)"
       >
-        <svg
-          class="pagination-icon"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M15 19l-7-7 7-7"
-          />
-        </svg>
+        <Icon icon="solar:alt-arrow-left-linear" class="pagination-icon" />
         Previous
       </button>
 
@@ -85,26 +73,16 @@
         @click="$emit('goToPage', currentPage + 1)"
       >
         Next
-        <svg
-          class="pagination-icon"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M9 5l7 7-7 7"
-          />
-        </svg>
+        <Icon icon="solar:alt-arrow-right-linear" class="pagination-icon" />
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { Icon } from "@iconify/vue"
 import { usePaginationHelpers } from "../composables/usePaginationHelpers"
+
 
 const props = defineProps({
   currentPage: {

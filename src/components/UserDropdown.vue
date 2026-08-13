@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { Icon } from "@iconify/vue";
 import { useAuth } from "../composables/useAuth";
 
 const { user, logout } = useAuth();
@@ -43,20 +44,11 @@ onUnmounted(() => {
         <span class="user-name">{{ user?.full_name || "User" }}</span>
         <!-- Optional: <span class="user-role">{{ user?.is_admin ? 'Admin' : 'User' }}</span> -->
       </div>
-      <svg
+      <Icon
+        icon="solar:alt-arrow-down-linear"
         class="chevron"
         :class="{ rotated: isOpen }"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M19 9l-7 7-7-7"
-        />
-      </svg>
+      />
     </button>
 
     <transition name="fade">
@@ -67,25 +59,14 @@ onUnmounted(() => {
         </div>
         <div class="dropdown-divider"></div>
         <button class="dropdown-item logout" @click="logout">
-          <svg
-            class="icon"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-            />
-          </svg>
+          <Icon icon="solar:logout-2-bold" class="icon" />
           Logout
         </button>
       </div>
     </transition>
   </div>
 </template>
+
 
 <style scoped>
 .user-dropdown {

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { Icon } from '@iconify/vue';
 
 const props = defineProps({
   modelValue: {
@@ -84,19 +85,11 @@ onUnmounted(() => {
         </div>
       </div>
       
-      <svg 
+      <Icon 
+        icon="solar:alt-arrow-down-linear"
         class="chevron" 
         :class="{ rotated: isOpen }"
-        xmlns="http://www.w3.org/2000/svg" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        stroke-width="2" 
-        stroke-linecap="round" 
-        stroke-linejoin="round"
-      >
-        <polyline points="6 9 12 15 18 9"></polyline>
-      </svg>
+      />
     </div>
 
     <transition name="fade">
@@ -113,9 +106,7 @@ onUnmounted(() => {
             <div class="option-name">
               {{ model.name }}
               <span v-if="model.id === modelValue" class="check-mark">
-                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
+                <Icon icon="solar:check-read-linear" />
               </span>
             </div>
             <div class="option-desc">{{ model.description }}</div>
@@ -125,6 +116,7 @@ onUnmounted(() => {
     </transition>
   </div>
 </template>
+
 
 <style scoped>
 .model-selector {
