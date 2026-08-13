@@ -14,7 +14,21 @@ export const ACCOUNT_STATUS = {
     BLOCKED: 3
 };
 
+// Cross-tab Session Synchronization: automatically sync logout across all open tabs
+if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'auth_token' && !event.newValue) {
+            user.value = null;
+            hasCheckedAuth.value = true;
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+        }
+    });
+}
+
 export function getAuthHeaders(extraHeaders = {}) {
+
     const token = localStorage.getItem('auth_token');
     const headers = { ...extraHeaders };
     if (token) {

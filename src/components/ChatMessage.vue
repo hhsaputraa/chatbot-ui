@@ -141,14 +141,29 @@ const toggleDetails = () => {
   showDetails.value = !showDetails.value;
 };
 
+function escapeHTML(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const formatMarkdown = (text) => {
   if (!text) return "";
-  let formatted = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  // 1. Sanitize HTML entities first to neutralize any injected scripts/tags
+  const safeText = escapeHTML(text);
+  // 2. Safely apply bold, italic, and newline formatting
+  let formatted = safeText.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
   formatted = formatted.replace(/\*(.*?)\*/g, "<em>$1</em>");
+  formatted = formatted.replace(/\n/g, "<br/>");
   return formatted;
 };
 
 const formattedInsight = computed(() => formatMarkdown(props.message?.content || ""));
+
 
 
 const copied = ref(false);

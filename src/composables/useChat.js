@@ -46,6 +46,32 @@ export function useChat() {
 
   async function uploadFile(file) {
     if (!file) return;
+
+    // Client-side file validation (Defense-in-depth)
+    const allowedExtensions = ['.csv', '.xlsx', '.xls', '.json', '.pdf'];
+    const fileName = (file.name || "").toLowerCase();
+    const isAllowed = allowedExtensions.some(ext => fileName.endsWith(ext));
+
+    if (!isAllowed) {
+      messages.value.push({
+        role: "bot",
+        type: "error",
+        content: "Format file tidak didukung. Harap unggah file dengan format .csv, .xlsx, .xls, .json, atau .pdf."
+      });
+      return;
+    }
+
+    // Limit to max 10 MB
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      messages.value.push({
+        role: "bot",
+        type: "error",
+        content: "Ukuran file melebihi batas maksimal (10 MB)."
+      });
+      return;
+    }
+
     isLoading.value = true;
     const formData = new FormData();
     formData.append('file', file);
@@ -57,6 +83,7 @@ export function useChat() {
         body: formData,
         credentials: 'include'
       });
+
       const data = await response.json();
       if (response.ok && (data.status === 'success' || data.session_id)) {
         activeSessionId.value = data.session_id;
